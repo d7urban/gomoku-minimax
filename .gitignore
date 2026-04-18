@@ -1,0 +1,4 @@
+build/
+build-sfml/
+compile_commands.json
+gomoku_analysis_position.txt

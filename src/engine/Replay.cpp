@@ -1,0 +1,280 @@
+#include "gomoku/Replay.hpp"
+
+#include <cctype>
+#include <sstream>
+
+namespace gomoku {
+
+namespace {
+
+constexpr int kAnnotatedPositionFormatVersion = 1;
+
+std::string serializeMoveList(const std::vector<Move>& moves) {
+    std::ostringstream output;
+    for (std::size_t index = 0; index < moves.size(); ++index) {
+        if (index > 0) {
+            output << ' ';
+        }
+        output << moveToString(moves[index]);
+    }
+    return output.str();
+}
+
+bool parseMoveList(std::istringstream& input, std::vector<Move>& moves, std::string& badToken) {
+    moves.clear();
+    std::string token;
+    while (input >> token) {
+        Move move;
+        if (!tryParseMove(token, move)) {
+            badToken = token;
+            return false;
+        }
+        moves.push_back(move);
+    }
+    badToken.clear();
+    return true;
+}
+
+bool tryParseProofOutcome(std::string_view text, ProofOutcome& outcome) {
+    std::string lowered(text);
+    for (char& ch : lowered) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+
+    if (lowered == "unknown") {
+        outcome = ProofOutcome::Unknown;
+        return true;
+    }
+    if (lowered == "proven_win") {
+        outcome = ProofOutcome::ProvenWin;
+        return true;
+    }
+    if (lowered == "proven_loss") {
+        outcome = ProofOutcome::ProvenLoss;
+        return true;
+    }
+    return false;
+}
+
+}  // namespace
+
+std::string serializeReplay(const GameState& state) {
+    std::ostringstream output;
+    output << "ruleset=" << toString(state.rules().ruleset) << '\n';
+
+    for (const Action& action : state.actions()) {
+        if (action.kind == Action::Kind::Move) {
+            output << "move " << moveToString(action.move) << '\n';
+        } else {
+            output << "swap " << toString(action.swapChoice) << '\n';
+        }
+    }
+
+    return output.str();
+}
+
+bool deserializeReplay(const RulesSpec& rules, std::string_view text, GameState& state, std::string& error) {
+    state = GameState(rules);
+
+    std::istringstream input {std::string(text)};
+    std::string line;
+    int lineNumber = 0;
+
+    while (std::getline(input, line)) {
+        ++lineNumber;
+        if (line.empty()) {
+            continue;
+        }
+
+        if (line.rfind("ruleset=", 0) == 0) {
+            continue;
+        }
+
+        std::istringstream lineStream(line);
+        std::string command;
+        lineStream >> command;
+
+        if (command == "move") {
+            std::string moveText;
+            lineStream >> moveText;
+
+            Move move;
+            if (!tryParseMove(moveText, move) || !state.applyMove(move)) {
+                error = "Invalid move on replay line " + std::to_string(lineNumber) + ": " + moveText;
+                return false;
+            }
+            continue;
+        }
+
+        if (command == "swap") {
+            std::string choiceText;
+            lineStream >> choiceText;
+
+            SwapChoice choice;
+            if (!tryParseSwapChoice(choiceText, choice) || !state.applySwapChoice(choice)) {
+                error = "Invalid swap choice on replay line " + std::to_string(lineNumber) + ": " + choiceText;
+                return false;
+            }
+            continue;
+        }
+
+        error = "Unknown replay command on line " + std::to_string(lineNumber) + ": " + command;
+        return false;
+    }
+
+    error.clear();
+    return true;
+}
+
+std::string serializeAnnotatedPosition(const GameState& state, const PositionAnnotation& annotation) {
+    std::ostringstream output;
+    output << "format=" << kAnnotatedPositionFormatVersion << '\n';
+    output << serializeReplay(state);
+    if (annotation.analysisPlayer != Player::None) {
+        output << "analysis_player=" << toString(annotation.analysisPlayer) << '\n';
+    }
+    output << "proof_outcome=" << toString(annotation.proofOutcome) << '\n';
+    output << "proof_nodes=" << annotation.proofNodes << '\n';
+    if (!annotation.label.empty()) {
+        output << "label " << annotation.label << '\n';
+    }
+    if (!annotation.principalVariation.empty()) {
+        output << "pv " << serializeMoveList(annotation.principalVariation) << '\n';
+    }
+    if (!annotation.provenWinningMoves.empty()) {
+        output << "proven_wins " << serializeMoveList(annotation.provenWinningMoves) << '\n';
+    }
+    if (!annotation.provenLosingMoves.empty()) {
+        output << "proven_losses " << serializeMoveList(annotation.provenLosingMoves) << '\n';
+    }
+    return output.str();
+}
+
+bool deserializeAnnotatedPosition(std::string_view text, GameState& state, PositionAnnotation& annotation, std::string& error) {
+    annotation = PositionAnnotation {};
+
+    std::vector<std::string> lines;
+    std::istringstream input {std::string(text)};
+    std::string line;
+    Ruleset ruleset = Ruleset::Freestyle15;
+
+    while (std::getline(input, line)) {
+        if (line.rfind("format=", 0) == 0) {
+            std::istringstream value(line.substr(7));
+            int version = 0;
+            if (!(value >> version)) {
+                error = "Invalid annotated-position format version: " + line.substr(7);
+                return false;
+            }
+            if (version > kAnnotatedPositionFormatVersion) {
+                error = "Unsupported annotated-position format version: " + std::to_string(version);
+                return false;
+            }
+        }
+        if (line.rfind("ruleset=", 0) == 0) {
+            Ruleset parsed;
+            if (!tryParseRuleset(line.substr(8), parsed)) {
+                error = "Invalid ruleset in annotated position: " + line.substr(8);
+                return false;
+            }
+            ruleset = parsed;
+        }
+        lines.push_back(line);
+    }
+
+    state = GameState(rulesFor(ruleset));
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string& current = lines[index];
+        const int lineNumber = static_cast<int>(index + 1);
+        if (current.empty() || current.rfind("format=", 0) == 0 || current.rfind("ruleset=", 0) == 0) {
+            continue;
+        }
+        if (current.rfind("analysis_player=", 0) == 0) {
+            Player player = Player::None;
+            const std::string value = current.substr(16);
+            if (value == "black") {
+                player = Player::Black;
+            } else if (value == "white") {
+                player = Player::White;
+            } else if (value != "none") {
+                error = "Invalid analysis player on line " + std::to_string(lineNumber) + ": " + value;
+                return false;
+            }
+            annotation.analysisPlayer = player;
+            continue;
+        }
+        if (current.rfind("proof_outcome=", 0) == 0) {
+            const std::string value = current.substr(14);
+            if (!tryParseProofOutcome(value, annotation.proofOutcome)) {
+                error = "Invalid proof outcome on line " + std::to_string(lineNumber) + ": " + value;
+                return false;
+            }
+            continue;
+        }
+        if (current.rfind("proof_nodes=", 0) == 0) {
+            std::istringstream value(current.substr(12));
+            if (!(value >> annotation.proofNodes)) {
+                error = "Invalid proof node count on line " + std::to_string(lineNumber);
+                return false;
+            }
+            continue;
+        }
+        if (current.rfind("label ", 0) == 0) {
+            annotation.label = current.substr(6);
+            continue;
+        }
+
+        std::istringstream lineStream(current);
+        std::string command;
+        lineStream >> command;
+
+        if (command == "pv" || command == "proven_wins" || command == "proven_losses") {
+            std::vector<Move> moves;
+            std::string badToken;
+            if (!parseMoveList(lineStream, moves, badToken)) {
+                error = "Invalid move token on line " + std::to_string(lineNumber) + ": " + badToken;
+                return false;
+            }
+            if (command == "pv") {
+                annotation.principalVariation = std::move(moves);
+            } else if (command == "proven_wins") {
+                annotation.provenWinningMoves = std::move(moves);
+            } else {
+                annotation.provenLosingMoves = std::move(moves);
+            }
+            continue;
+        }
+
+        if (command == "move") {
+            std::string moveText;
+            lineStream >> moveText;
+
+            Move move;
+            if (!tryParseMove(moveText, move) || !state.applyMove(move)) {
+                error = "Invalid move on replay line " + std::to_string(lineNumber) + ": " + moveText;
+                return false;
+            }
+            continue;
+        }
+
+        if (command == "swap") {
+            std::string choiceText;
+            lineStream >> choiceText;
+
+            SwapChoice choice;
+            if (!tryParseSwapChoice(choiceText, choice) || !state.applySwapChoice(choice)) {
+                error = "Invalid swap choice on replay line " + std::to_string(lineNumber) + ": " + choiceText;
+                return false;
+            }
+            continue;
+        }
+
+        error = "Unknown annotated-position command on line " + std::to_string(lineNumber) + ": " + command;
+        return false;
+    }
+
+    error.clear();
+    return true;
+}
+
+}  // namespace gomoku
