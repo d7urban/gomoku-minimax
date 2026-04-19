@@ -283,6 +283,7 @@ public:
             }
 
             completedDepth_ = true;
+            rootIterationDepth_ = depth;
             RootSearchResult iteration;
 
             if (config_.useAspirationWindows && depth > 1 && std::abs(previousScore) < kMateThreshold) {
@@ -339,6 +340,7 @@ private:
     std::uint64_t ttHits_ {0};
     std::uint64_t vcfProbeNodes_ {0};
     int vcfHits_ {0};
+    int rootIterationDepth_ {0};
     bool completedDepth_ {true};
     std::unordered_map<std::uint64_t, TTEntry> tt_;
     std::vector<std::array<std::optional<Move>, 2>> killerMoves_;
@@ -606,7 +608,10 @@ private:
 
         // Forced-four defense extension at the root (see negamax for detail).
         const Player rootOpponent = otherPlayer(state.sideToMove());
-        const int forcedDefenseExtension = state.hasThreatAtLeast(rootOpponent, ThreatType::SimpleFour) ? 1 : 0;
+        constexpr int kRootExtensionBudget = 8;
+        const bool rootExtensionAllowed = depth < (rootIterationDepth_ + kRootExtensionBudget);
+        const int forcedDefenseExtension = (rootExtensionAllowed
+            && state.hasThreatAtLeast(rootOpponent, ThreatType::SimpleFour)) ? 1 : 0;
         const int childDepth = depth - 1 + forcedDefenseExtension;
 
         for (std::size_t index = 0; index < candidates.size(); ++index) {
@@ -723,6 +728,12 @@ private:
             return 0;
         }
 
+        // Hard ply cap — protects the stack against extension chains or
+        // pathological forcing sequences that would recurse without bound.
+        if (ply >= kMaxSearchPly) {
+            return StaticEvaluator::evaluate(state, state.sideToMove());
+        }
+
         if (state.isGameOver()) {
             return terminalScore(state, ply);
         }
@@ -833,8 +844,13 @@ private:
         // Forced-four defense extension: if the opponent is threatening a
         // SimpleFour/OpenFour at this position, every child is either a
         // forced defense or an immediate loss — extend search by +1 so the
-        // horizon doesn't fall inside the forced sequence.
-        const int forcedDefenseExtension = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour) ? 1 : 0;
+        // horizon doesn't fall inside the forced sequence. Cap total
+        // extensions along a path so mutual forced-four chains can't push
+        // past the root iteration depth without bound.
+        constexpr int kExtensionBudget = 8;
+        const bool extensionAllowed = (ply + depth) < (rootIterationDepth_ + kExtensionBudget);
+        const int forcedDefenseExtension = (extensionAllowed
+            && state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) ? 1 : 0;
 
         const int originalAlpha = alpha;
         int bestScore = -kInfinity;

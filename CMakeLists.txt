@@ -55,6 +55,9 @@ target_link_libraries(gomoku_proof_bench PRIVATE gomoku_engine)
 add_executable(gomoku_gomocup src/tools/gomoku_gomocup.cpp)
 target_link_libraries(gomoku_gomocup PRIVATE gomoku_engine)
 
+add_executable(gomoku_tournament src/tools/tournament.cpp)
+target_link_libraries(gomoku_tournament PRIVATE gomoku_engine)
+
 option(GOMOKU_BUILD_SFML_UI "Build the SFML graphical UI" ON)
 
 if(GOMOKU_BUILD_SFML_UI)

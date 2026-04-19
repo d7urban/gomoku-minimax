@@ -203,6 +203,36 @@ void testVcfLeafDisabledFallsBackToEval() {
     assert(result.summary.score < 1'000'000);
 }
 
+void testForcedFourExtensionTerminates() {
+    // Build a position where White has a SimpleFour threat at row 7
+    // (pieces at cols 0..3). Black to move — forced defense at (7, 4).
+    // The forced-four extension fires. Even with a relatively deep search
+    // and a forced-defense chain, the ply cap + extension budget must keep
+    // the search from running past its bounds: the search must complete
+    // and return the unique defending move in bounded time.
+    GameState game = makeGame({
+        {0, 0}, {7, 0},
+        {0, 1}, {7, 1},
+        {0, 7}, {7, 2},
+        {1, 1}, {7, 3},
+    });
+    assert(game.sideToMove() == Player::Black);
+
+    SearchConfig config;
+    config.maxDepth = 8;             // high enough for extensions to matter
+    config.maxNodes = 500'000;
+    config.timeLimitMs = 2000;
+    config.useOpeningBook = false;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(*result.bestMove == (Move{7, 4}));
+    // Depth must have advanced past the first iteration (otherwise the
+    // extension/cap interaction would be hiding a hang or abort).
+    assert(result.summary.depthReached >= 4);
+}
+
 }  // namespace
 
 int main() {
@@ -212,5 +242,6 @@ int main() {
     testVcfLeafFindsOpenFourMate();
     testVcfLeafDisabledFallsBackToEval();
     testForcingFilterPicksUniqueSimpleFourBlock();
+    testForcedFourExtensionTerminates();
     return 0;
 }
