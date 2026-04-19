@@ -62,6 +62,14 @@ void Match::setAiMoveTimeMs(int aiMoveTimeMs) {
     config_.aiMoveTimeMs = std::max(1, aiMoveTimeMs);
 }
 
+const ClockState& Match::clockState() const {
+    return clockState_;
+}
+
+void Match::setClockState(const ClockState& clockState) {
+    clockState_ = clockState;
+}
+
 bool Match::applyMove(Move move) {
     return state_.applyMove(move);
 }
@@ -195,6 +203,8 @@ SearchConfig Match::makeSearchConfig() const {
     config.timeLimitMs = std::max(1, config_.aiMoveTimeMs);
     config.softTimeLimitMs = std::max(1, config.timeLimitMs * 3 / 4);
     config.maxNodes = std::max<std::uint64_t>(90000, static_cast<std::uint64_t>(config.timeLimitMs) * 1200ULL);
+    config.clock = clockState_;
+    config.clock.moveNumber = static_cast<std::uint32_t>(state_.moveCount());
     return config;
 }
 

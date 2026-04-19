@@ -93,16 +93,38 @@ public:
     }
 
     void cmdInfo(const std::string& key, const std::string& value) {
-        if (key == "timeout_turn") {
-            try {
-                int ms = std::stoi(value);
-                if (ms > 0) {
-                    config_.aiMoveTimeMs = ms;
-                    match_->setAiMoveTimeMs(ms);
+        // Try to parse first; if malformed, ignore silently per spec.
+        long long parsed = 0;
+        bool haveNumber = false;
+        try {
+            parsed = std::stoll(value);
+            haveNumber = true;
+        } catch (const std::exception&) {
+            // leave haveNumber=false
+        }
+
+        gomoku::ClockState clock = match_->clockState();
+        bool clockChanged = false;
+        if (haveNumber) {
+            if (key == "timeout_turn") {
+                clock.timeoutTurnMs = parsed;
+                clockChanged = true;
+                if (parsed > 0) {
+                    // Preserve legacy behavior: treat timeout_turn as the
+                    // per-move hard cap fed into the in-engine search.
+                    config_.aiMoveTimeMs = static_cast<int>(parsed);
+                    match_->setAiMoveTimeMs(static_cast<int>(parsed));
                 }
-            } catch (const std::exception&) {
-                // malformed value: silently ignore (per spec)
+            } else if (key == "timeout_match") {
+                clock.timeoutMatchMs = parsed;
+                clockChanged = true;
+            } else if (key == "time_left") {
+                clock.timeLeftMs = parsed;
+                clockChanged = true;
             }
+        }
+        if (clockChanged) {
+            match_->setClockState(clock);
         }
         // Other keys silently ignored.
     }

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "gomoku/ClockState.hpp"
 #include "gomoku/ProofSearch.hpp"
 #include "gomoku/ThreatSearch.hpp"
 #include "gomoku/Threats.hpp"
@@ -24,6 +25,11 @@ struct SearchConfig {
     bool useVcfAtLeaves {true};
     int vcfMaxDepth {10};
     std::uint64_t vcfNodeBudget {600};
+    // Per-call snapshot of the match clock. Transitional home; the
+    // governor (future work) consumes this as read-only input. Default
+    // all-unknown so tests and in-process callers that do not care about
+    // clocks pay no cost.
+    ClockState clock {};
 };
 
 struct SearchSummary {

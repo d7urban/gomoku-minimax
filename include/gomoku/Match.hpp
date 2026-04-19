@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "gomoku/AnalystAI.hpp"
+#include "gomoku/ClockState.hpp"
 #include "gomoku/ClubAI.hpp"
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/ProofSearch.hpp"
@@ -37,6 +38,13 @@ public:
 
     void setAiMoveTimeMs(int aiMoveTimeMs);
 
+    // Clock state observed from the match protocol. The gomocup adapter
+    // (and any future analogue) is expected to update this whenever a
+    // clock-bearing protocol message arrives; Match is the authoritative
+    // owner. makeSearchConfig() stamps a snapshot into each search call.
+    const ClockState& clockState() const;
+    void setClockState(const ClockState& clockState);
+
     bool applyMove(Move move);
     bool applySwapChoice(SwapChoice choice);
     bool undo();
@@ -53,6 +61,7 @@ public:
 private:
     MatchConfig config_ {};
     GameState state_;
+    ClockState clockState_ {};
     std::optional<SwapChoice> resolvedSwapChoice_;
     std::optional<SearchSummary> lastSearchSummary_;
     std::optional<ThreatSearchResult> lastThreatSequence_;
