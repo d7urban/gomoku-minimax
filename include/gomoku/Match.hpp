@@ -35,6 +35,8 @@ public:
     bool isHumanTurn() const;
     bool isAiTurn() const;
 
+    void setAiMoveTimeMs(int aiMoveTimeMs);
+
     bool applyMove(Move move);
     bool applySwapChoice(SwapChoice choice);
     bool undo();

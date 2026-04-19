@@ -1,0 +1,33 @@
+{
+  "analysis_enabled": false,
+  "board_size": 15,
+  "custom_sims": 500,
+  "difficulty_mode": "medium",
+  "format": "gomokuzero-qt-save",
+  "game_over": false,
+  "human_only_mode": true,
+  "human_player": 1,
+  "loaded_weight_file": "",
+  "move_history": [
+    [
+      10,
+      5,
+      1
+    ],
+    [
+      10,
+      6,
+      -1
+    ],
+    [
+      9,
+      3,
+      1
+    ]
+  ],
+  "saved_at": 1776549485.8422096,
+  "side_combo_player": 1,
+  "version": 1,
+  "weight_mode": "best",
+  "weight_path": ""
+}

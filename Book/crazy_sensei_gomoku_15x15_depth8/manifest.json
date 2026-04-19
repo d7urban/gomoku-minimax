@@ -1,0 +1,6069 @@
+{
+  "crawled_at": "2026-04-18T21:39:25+00:00",
+  "frontier_remaining": 0,
+  "max_pages": 600,
+  "max_ply": 8,
+  "min_size": 12,
+  "pages_fetched": 287,
+  "request_delay_s": 0.5,
+  "seed_count": 253,
+  "seeds": [
+    {
+      "last_move_size": 196,
+      "last_move_value": -0.936,
+      "moves": [
+        {
+          "notation": "B1",
+          "ply": 1,
+          "x": 1,
+          "y": 14
+        }
+      ],
+      "path": "B1",
+      "path_min_size": 196,
+      "ply": 1,
+      "save_file": "saves/seed_0001_B1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/B1"
+    },
+    {
+      "last_move_size": 191,
+      "last_move_value": -0.952,
+      "moves": [
+        {
+          "notation": "F1",
+          "ply": 1,
+          "x": 5,
+          "y": 14
+        }
+      ],
+      "path": "F1",
+      "path_min_size": 191,
+      "ply": 1,
+      "save_file": "saves/seed_0002_F1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F1"
+    },
+    {
+      "last_move_size": 186,
+      "last_move_value": -0.94,
+      "moves": [
+        {
+          "notation": "C1",
+          "ply": 1,
+          "x": 2,
+          "y": 14
+        }
+      ],
+      "path": "C1",
+      "path_min_size": 186,
+      "ply": 1,
+      "save_file": "saves/seed_0003_C1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C1"
+    },
+    {
+      "last_move_size": 182,
+      "last_move_value": -0.963,
+      "moves": [
+        {
+          "notation": "D1",
+          "ply": 1,
+          "x": 3,
+          "y": 14
+        }
+      ],
+      "path": "D1",
+      "path_min_size": 182,
+      "ply": 1,
+      "save_file": "saves/seed_0004_D1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D1"
+    },
+    {
+      "last_move_size": 162,
+      "last_move_value": -0.958,
+      "moves": [
+        {
+          "notation": "G1",
+          "ply": 1,
+          "x": 6,
+          "y": 14
+        }
+      ],
+      "path": "G1",
+      "path_min_size": 162,
+      "ply": 1,
+      "save_file": "saves/seed_0005_G1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G1"
+    },
+    {
+      "last_move_size": 151,
+      "last_move_value": -0.948,
+      "moves": [
+        {
+          "notation": "E1",
+          "ply": 1,
+          "x": 4,
+          "y": 14
+        }
+      ],
+      "path": "E1",
+      "path_min_size": 151,
+      "ply": 1,
+      "save_file": "saves/seed_0006_E1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E1"
+    },
+    {
+      "last_move_size": 111,
+      "last_move_value": -0.95,
+      "moves": [
+        {
+          "notation": "H1",
+          "ply": 1,
+          "x": 7,
+          "y": 14
+        }
+      ],
+      "path": "H1",
+      "path_min_size": 111,
+      "ply": 1,
+      "save_file": "saves/seed_0007_H1.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H1"
+    },
+    {
+      "last_move_size": 101,
+      "last_move_value": -0.867,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "F5,F6",
+      "path_min_size": 101,
+      "ply": 2,
+      "save_file": "saves/seed_0008_F5__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,F6"
+    },
+    {
+      "last_move_size": 90,
+      "last_move_value": -0.838,
+      "moves": [
+        {
+          "notation": "E5",
+          "ply": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "E5,F5",
+      "path_min_size": 90,
+      "ply": 2,
+      "save_file": "saves/seed_0009_E5__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E5,F5"
+    },
+    {
+      "last_move_size": 87,
+      "last_move_value": -0.992,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "G3",
+          "ply": 2,
+          "x": 6,
+          "y": 12
+        }
+      ],
+      "path": "H8,G3",
+      "path_min_size": 87,
+      "ply": 2,
+      "save_file": "saves/seed_0010_H8__G3.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,G3"
+    },
+    {
+      "last_move_size": 79,
+      "last_move_value": -0.89,
+      "moves": [
+        {
+          "notation": "E5",
+          "ply": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "E5,G5",
+      "path_min_size": 79,
+      "ply": 2,
+      "save_file": "saves/seed_0011_E5__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E5,G5"
+    },
+    {
+      "last_move_size": 79,
+      "last_move_value": -0.856,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "F5,G5",
+      "path_min_size": 79,
+      "ply": 2,
+      "save_file": "saves/seed_0012_F5__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,G5"
+    },
+    {
+      "last_move_size": 75,
+      "last_move_value": -0.924,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "F5,F7",
+      "path_min_size": 75,
+      "ply": 2,
+      "save_file": "saves/seed_0013_F5__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,F7"
+    },
+    {
+      "last_move_size": 74,
+      "last_move_value": -0.498,
+      "moves": [
+        {
+          "notation": "E3",
+          "ply": 1,
+          "x": 4,
+          "y": 12
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "E3,E6",
+      "path_min_size": 74,
+      "ply": 2,
+      "save_file": "saves/seed_0014_E3__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E3,E6"
+    },
+    {
+      "last_move_size": 74,
+      "last_move_value": -0.913,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "G5,F5",
+      "path_min_size": 74,
+      "ply": 2,
+      "save_file": "saves/seed_0015_G5__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,F5"
+    },
+    {
+      "last_move_size": 73,
+      "last_move_value": -0.879,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "F5,G6",
+      "path_min_size": 73,
+      "ply": 2,
+      "save_file": "saves/seed_0016_F5__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,G6"
+    },
+    {
+      "last_move_size": 73,
+      "last_move_value": -0.797,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "G4,G5",
+      "path_min_size": 73,
+      "ply": 2,
+      "save_file": "saves/seed_0017_G4__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,G5"
+    },
+    {
+      "last_move_size": 72,
+      "last_move_value": -0.92,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "F5,E6",
+      "path_min_size": 72,
+      "ply": 2,
+      "save_file": "saves/seed_0018_F5__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,E6"
+    },
+    {
+      "last_move_size": 72,
+      "last_move_value": -0.878,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "H5,G5",
+      "path_min_size": 72,
+      "ply": 2,
+      "save_file": "saves/seed_0019_H5__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,G5"
+    },
+    {
+      "last_move_size": 71,
+      "last_move_value": -0.892,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "G5,H5",
+      "path_min_size": 71,
+      "ply": 2,
+      "save_file": "saves/seed_0020_G5__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,H5"
+    },
+    {
+      "last_move_size": 71,
+      "last_move_value": -0.989,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "H11",
+          "ply": 2,
+          "x": 7,
+          "y": 4
+        }
+      ],
+      "path": "G6,H11",
+      "path_min_size": 71,
+      "ply": 2,
+      "save_file": "saves/seed_0021_G6__H11.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,H11"
+    },
+    {
+      "last_move_size": 70,
+      "last_move_value": -0.866,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "G5,G6",
+      "path_min_size": 70,
+      "ply": 2,
+      "save_file": "saves/seed_0022_G5__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,G6"
+    },
+    {
+      "last_move_size": 70,
+      "last_move_value": -0.9,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "G6,F6",
+      "path_min_size": 70,
+      "ply": 2,
+      "save_file": "saves/seed_0023_G6__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,F6"
+    },
+    {
+      "last_move_size": 70,
+      "last_move_value": -0.886,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H5,G6",
+      "path_min_size": 70,
+      "ply": 2,
+      "save_file": "saves/seed_0024_H5__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,G6"
+    },
+    {
+      "last_move_size": 67,
+      "last_move_value": -0.918,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "F5,F4",
+      "path_min_size": 67,
+      "ply": 2,
+      "save_file": "saves/seed_0025_F5__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,F4"
+    },
+    {
+      "last_move_size": 67,
+      "last_move_value": -0.913,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "F6,F5",
+      "path_min_size": 67,
+      "ply": 2,
+      "save_file": "saves/seed_0026_F6__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,F5"
+    },
+    {
+      "last_move_size": 67,
+      "last_move_value": -0.934,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "H6,F6",
+      "path_min_size": 67,
+      "ply": 2,
+      "save_file": "saves/seed_0027_H6__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,F6"
+    },
+    {
+      "last_move_size": 67,
+      "last_move_value": -0.992,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "G10",
+          "ply": 2,
+          "x": 6,
+          "y": 5
+        }
+      ],
+      "path": "H6,G10",
+      "path_min_size": 67,
+      "ply": 2,
+      "save_file": "saves/seed_0028_H6__G10.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,G10"
+    },
+    {
+      "last_move_size": 67,
+      "last_move_value": -0.983,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "H8,F4",
+      "path_min_size": 67,
+      "ply": 2,
+      "save_file": "saves/seed_0029_H8__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,F4"
+    },
+    {
+      "last_move_size": 67,
+      "last_move_value": -0.981,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "H8,G4",
+      "path_min_size": 67,
+      "ply": 2,
+      "save_file": "saves/seed_0030_H8__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,G4"
+    },
+    {
+      "last_move_size": 66,
+      "last_move_value": -0.871,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "G5,G4",
+      "path_min_size": 66,
+      "ply": 2,
+      "save_file": "saves/seed_0031_G5__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,G4"
+    },
+    {
+      "last_move_size": 65,
+      "last_move_value": -0.897,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "E4",
+          "ply": 2,
+          "x": 4,
+          "y": 11
+        }
+      ],
+      "path": "F4,E4",
+      "path_min_size": 65,
+      "ply": 2,
+      "save_file": "saves/seed_0032_F4__E4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,E4"
+    },
+    {
+      "last_move_size": 65,
+      "last_move_value": -0.972,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "F6,H4",
+      "path_min_size": 65,
+      "ply": 2,
+      "save_file": "saves/seed_0033_F6__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,H4"
+    },
+    {
+      "last_move_size": 65,
+      "last_move_value": -0.883,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "G5,H6",
+      "path_min_size": 65,
+      "ply": 2,
+      "save_file": "saves/seed_0034_G5__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,H6"
+    },
+    {
+      "last_move_size": 65,
+      "last_move_value": -0.862,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "H8",
+          "ply": 2,
+          "x": 7,
+          "y": 7
+        }
+      ],
+      "path": "H7,H8",
+      "path_min_size": 65,
+      "ply": 2,
+      "save_file": "saves/seed_0035_H7__H8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,H8"
+    },
+    {
+      "last_move_size": 64,
+      "last_move_value": -0.912,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "F6,G6",
+      "path_min_size": 64,
+      "ply": 2,
+      "save_file": "saves/seed_0036_F6__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,G6"
+    },
+    {
+      "last_move_size": 64,
+      "last_move_value": -0.77,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "H4,H5",
+      "path_min_size": 64,
+      "ply": 2,
+      "save_file": "saves/seed_0037_H4__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,H5"
+    },
+    {
+      "last_move_size": 64,
+      "last_move_value": -0.898,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "H7,G7",
+      "path_min_size": 64,
+      "ply": 2,
+      "save_file": "saves/seed_0038_H7__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,G7"
+    },
+    {
+      "last_move_size": 63,
+      "last_move_value": -0.863,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "F4,G4",
+      "path_min_size": 63,
+      "ply": 2,
+      "save_file": "saves/seed_0039_F4__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,G4"
+    },
+    {
+      "last_move_size": 63,
+      "last_move_value": -0.851,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "F4,G5",
+      "path_min_size": 63,
+      "ply": 2,
+      "save_file": "saves/seed_0040_F4__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,G5"
+    },
+    {
+      "last_move_size": 63,
+      "last_move_value": -0.989,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "G11",
+          "ply": 2,
+          "x": 6,
+          "y": 4
+        }
+      ],
+      "path": "H7,G11",
+      "path_min_size": 63,
+      "ply": 2,
+      "save_file": "saves/seed_0041_H7__G11.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,G11"
+    },
+    {
+      "last_move_size": 62,
+      "last_move_value": -0.62,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "D4,F6",
+      "path_min_size": 62,
+      "ply": 2,
+      "save_file": "saves/seed_0042_D4__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,F6"
+    },
+    {
+      "last_move_size": 62,
+      "last_move_value": -0.782,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "E4,F5",
+      "path_min_size": 62,
+      "ply": 2,
+      "save_file": "saves/seed_0043_E4__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,F5"
+    },
+    {
+      "last_move_size": 62,
+      "last_move_value": -0.579,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "F3,F6",
+      "path_min_size": 62,
+      "ply": 2,
+      "save_file": "saves/seed_0044_F3__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,F6"
+    },
+    {
+      "last_move_size": 62,
+      "last_move_value": -0.878,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "F5,E5",
+      "path_min_size": 62,
+      "ply": 2,
+      "save_file": "saves/seed_0045_F5__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,E5"
+    },
+    {
+      "last_move_size": 62,
+      "last_move_value": -0.981,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "K9",
+          "ply": 2,
+          "x": 9,
+          "y": 6
+        }
+      ],
+      "path": "G7,K9",
+      "path_min_size": 62,
+      "ply": 2,
+      "save_file": "saves/seed_0046_G7__K9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,K9"
+    },
+    {
+      "last_move_size": 62,
+      "last_move_value": -0.932,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H8,G6",
+      "path_min_size": 62,
+      "ply": 2,
+      "save_file": "saves/seed_0047_H8__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,G6"
+    },
+    {
+      "last_move_size": 61,
+      "last_move_value": -0.994,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "K9",
+          "ply": 2,
+          "x": 9,
+          "y": 6
+        }
+      ],
+      "path": "F6,K9",
+      "path_min_size": 61,
+      "ply": 2,
+      "save_file": "saves/seed_0048_F6__K9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,K9"
+    },
+    {
+      "last_move_size": 61,
+      "last_move_value": -0.841,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "G4,H5",
+      "path_min_size": 61,
+      "ply": 2,
+      "save_file": "saves/seed_0049_G4__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,H5"
+    },
+    {
+      "last_move_size": 61,
+      "last_move_value": -0.856,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "G6,G5",
+      "path_min_size": 61,
+      "ply": 2,
+      "save_file": "saves/seed_0050_G6__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,G5"
+    },
+    {
+      "last_move_size": 61,
+      "last_move_value": -0.898,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "G6,G7",
+      "path_min_size": 61,
+      "ply": 2,
+      "save_file": "saves/seed_0051_G6__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,G7"
+    },
+    {
+      "last_move_size": 61,
+      "last_move_value": -0.926,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "G7,G5",
+      "path_min_size": 61,
+      "ply": 2,
+      "save_file": "saves/seed_0052_G7__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,G5"
+    },
+    {
+      "last_move_size": 61,
+      "last_move_value": -0.978,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "H8,G5",
+      "path_min_size": 61,
+      "ply": 2,
+      "save_file": "saves/seed_0053_H8__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,G5"
+    },
+    {
+      "last_move_size": 60,
+      "last_move_value": -0.933,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "G6,E6",
+      "path_min_size": 60,
+      "ply": 2,
+      "save_file": "saves/seed_0054_G6__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,E6"
+    },
+    {
+      "last_move_size": 60,
+      "last_move_value": -0.926,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "J6",
+          "ply": 2,
+          "x": 8,
+          "y": 9
+        }
+      ],
+      "path": "G6,J6",
+      "path_min_size": 60,
+      "ply": 2,
+      "save_file": "saves/seed_0055_G6__J6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,J6"
+    },
+    {
+      "last_move_size": 60,
+      "last_move_value": -0.897,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "H4,G4",
+      "path_min_size": 60,
+      "ply": 2,
+      "save_file": "saves/seed_0056_H4__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,G4"
+    },
+    {
+      "last_move_size": 60,
+      "last_move_value": -0.877,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "H4,G5",
+      "path_min_size": 60,
+      "ply": 2,
+      "save_file": "saves/seed_0057_H4__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,G5"
+    },
+    {
+      "last_move_size": 60,
+      "last_move_value": -0.924,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H6,G6",
+      "path_min_size": 60,
+      "ply": 2,
+      "save_file": "saves/seed_0058_H6__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,G6"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.604,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "D4,F5",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0059_D4__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,F5"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.739,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "E4,E5",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0060_E4__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,E5"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.848,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "F4,E5",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0061_F4__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,E5"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.872,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "G4,F6",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0062_G4__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,F6"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.912,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "G7,G6",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0063_G7__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,G6"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.974,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "K8",
+          "ply": 2,
+          "x": 9,
+          "y": 7
+        }
+      ],
+      "path": "G7,K8",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0064_G7__K8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,K8"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.925,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "H5,F6",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0065_H5__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,F6"
+    },
+    {
+      "last_move_size": 59,
+      "last_move_value": -0.961,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "H8,F5",
+      "path_min_size": 59,
+      "ply": 2,
+      "save_file": "saves/seed_0066_H8__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,F5"
+    },
+    {
+      "last_move_size": 58,
+      "last_move_value": -0.537,
+      "moves": [
+        {
+          "notation": "E3",
+          "ply": 1,
+          "x": 4,
+          "y": 12
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "E3,F6",
+      "path_min_size": 58,
+      "ply": 2,
+      "save_file": "saves/seed_0067_E3__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E3,F6"
+    },
+    {
+      "last_move_size": 58,
+      "last_move_value": -0.836,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "F4,E6",
+      "path_min_size": 58,
+      "ply": 2,
+      "save_file": "saves/seed_0068_F4__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,E6"
+    },
+    {
+      "last_move_size": 58,
+      "last_move_value": -0.896,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "F4,G6",
+      "path_min_size": 58,
+      "ply": 2,
+      "save_file": "saves/seed_0069_F4__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,G6"
+    },
+    {
+      "last_move_size": 58,
+      "last_move_value": -0.884,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "F6,G5",
+      "path_min_size": 58,
+      "ply": 2,
+      "save_file": "saves/seed_0070_F6__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,G5"
+    },
+    {
+      "last_move_size": 58,
+      "last_move_value": -0.905,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "G7,H6",
+      "path_min_size": 58,
+      "ply": 2,
+      "save_file": "saves/seed_0071_G7__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,H6"
+    },
+    {
+      "last_move_size": 58,
+      "last_move_value": -0.924,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "G7,H7",
+      "path_min_size": 58,
+      "ply": 2,
+      "save_file": "saves/seed_0072_G7__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,H7"
+    },
+    {
+      "last_move_size": 57,
+      "last_move_value": -0.918,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "F5,H6",
+      "path_min_size": 57,
+      "ply": 2,
+      "save_file": "saves/seed_0073_F5__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,H6"
+    },
+    {
+      "last_move_size": 57,
+      "last_move_value": -0.867,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "G5,F6",
+      "path_min_size": 57,
+      "ply": 2,
+      "save_file": "saves/seed_0074_G5__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,F6"
+    },
+    {
+      "last_move_size": 57,
+      "last_move_value": -0.912,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "G6,H7",
+      "path_min_size": 57,
+      "ply": 2,
+      "save_file": "saves/seed_0075_G6__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,H7"
+    },
+    {
+      "last_move_size": 57,
+      "last_move_value": -0.896,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "H6,G7",
+      "path_min_size": 57,
+      "ply": 2,
+      "save_file": "saves/seed_0076_H6__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,G7"
+    },
+    {
+      "last_move_size": 57,
+      "last_move_value": -0.947,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "H7,F6",
+      "path_min_size": 57,
+      "ply": 2,
+      "save_file": "saves/seed_0077_H7__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,F6"
+    },
+    {
+      "last_move_size": 57,
+      "last_move_value": -0.9,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H7,G6",
+      "path_min_size": 57,
+      "ply": 2,
+      "save_file": "saves/seed_0078_H7__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,G6"
+    },
+    {
+      "last_move_size": 56,
+      "last_move_value": -0.896,
+      "moves": [
+        {
+          "notation": "E5",
+          "ply": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "E5,G6",
+      "path_min_size": 56,
+      "ply": 2,
+      "save_file": "saves/seed_0079_E5__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E5,G6"
+    },
+    {
+      "last_move_size": 56,
+      "last_move_value": -0.798,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "F4,F6",
+      "path_min_size": 56,
+      "ply": 2,
+      "save_file": "saves/seed_0080_F4__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,F6"
+    },
+    {
+      "last_move_size": 56,
+      "last_move_value": -0.933,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "F6,H7",
+      "path_min_size": 56,
+      "ply": 2,
+      "save_file": "saves/seed_0081_F6__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,H7"
+    },
+    {
+      "last_move_size": 56,
+      "last_move_value": -0.877,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H4,G6",
+      "path_min_size": 56,
+      "ply": 2,
+      "save_file": "saves/seed_0082_H4__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,G6"
+    },
+    {
+      "last_move_size": 56,
+      "last_move_value": -0.935,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "H6,F7",
+      "path_min_size": 56,
+      "ply": 2,
+      "save_file": "saves/seed_0083_H6__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,F7"
+    },
+    {
+      "last_move_size": 56,
+      "last_move_value": -0.91,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "G8",
+          "ply": 2,
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "path": "H7,G8",
+      "path_min_size": 56,
+      "ply": 2,
+      "save_file": "saves/seed_0084_H7__G8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,G8"
+    },
+    {
+      "last_move_size": 55,
+      "last_move_value": -0.993,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "K8",
+          "ply": 2,
+          "x": 9,
+          "y": 7
+        }
+      ],
+      "path": "F5,K8",
+      "path_min_size": 55,
+      "ply": 2,
+      "save_file": "saves/seed_0085_F5__K8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,K8"
+    },
+    {
+      "last_move_size": 55,
+      "last_move_value": -0.86,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "G4,F5",
+      "path_min_size": 55,
+      "ply": 2,
+      "save_file": "saves/seed_0086_G4__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,F5"
+    },
+    {
+      "last_move_size": 55,
+      "last_move_value": -0.83,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "G4,G6",
+      "path_min_size": 55,
+      "ply": 2,
+      "save_file": "saves/seed_0087_G4__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,G6"
+    },
+    {
+      "last_move_size": 55,
+      "last_move_value": -0.87,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "G6,F5",
+      "path_min_size": 55,
+      "ply": 2,
+      "save_file": "saves/seed_0088_G6__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,F5"
+    },
+    {
+      "last_move_size": 55,
+      "last_move_value": -0.842,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "H5,H6",
+      "path_min_size": 55,
+      "ply": 2,
+      "save_file": "saves/seed_0089_H5__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,H6"
+    },
+    {
+      "last_move_size": 55,
+      "last_move_value": -0.939,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "H7,F7",
+      "path_min_size": 55,
+      "ply": 2,
+      "save_file": "saves/seed_0090_H7__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,F7"
+    },
+    {
+      "last_move_size": 54,
+      "last_move_value": -0.782,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "E4,E6",
+      "path_min_size": 54,
+      "ply": 2,
+      "save_file": "saves/seed_0091_E4__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,E6"
+    },
+    {
+      "last_move_size": 54,
+      "last_move_value": -0.85,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "G4,H4",
+      "path_min_size": 54,
+      "ply": 2,
+      "save_file": "saves/seed_0092_G4__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,H4"
+    },
+    {
+      "last_move_size": 54,
+      "last_move_value": -0.946,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "J7",
+          "ply": 2,
+          "x": 8,
+          "y": 8
+        }
+      ],
+      "path": "G7,J7",
+      "path_min_size": 54,
+      "ply": 2,
+      "save_file": "saves/seed_0093_G7__J7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,J7"
+    },
+    {
+      "last_move_size": 54,
+      "last_move_value": -0.994,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "F9",
+          "ply": 2,
+          "x": 5,
+          "y": 6
+        }
+      ],
+      "path": "H4,F9",
+      "path_min_size": 54,
+      "ply": 2,
+      "save_file": "saves/seed_0094_H4__F9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,F9"
+    },
+    {
+      "last_move_size": 54,
+      "last_move_value": -0.865,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "H8,G7",
+      "path_min_size": 54,
+      "ply": 2,
+      "save_file": "saves/seed_0095_H8__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,G7"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.555,
+      "moves": [
+        {
+          "notation": "E3",
+          "ply": 1,
+          "x": 4,
+          "y": 12
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "E3,E5",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0096_E3__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E3,E5"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.836,
+      "moves": [
+        {
+          "notation": "E5",
+          "ply": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "E5,F6",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0097_E5__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E5,F6"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.597,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "G3,G6",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0098_G3__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,G6"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.875,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "G6,H5",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0099_G6__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,H5"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.934,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "J8",
+          "ply": 2,
+          "x": 8,
+          "y": 7
+        }
+      ],
+      "path": "G7,J8",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0100_G7__J8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,J8"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.863,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "H6,G5",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0101_H6__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,G5"
+    },
+    {
+      "last_move_size": 53,
+      "last_move_value": -0.896,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "H8,H7",
+      "path_min_size": 53,
+      "ply": 2,
+      "save_file": "saves/seed_0102_H8__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,H7"
+    },
+    {
+      "last_move_size": 52,
+      "last_move_value": -0.983,
+      "moves": [
+        {
+          "notation": "E5",
+          "ply": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "notation": "J7",
+          "ply": 2,
+          "x": 8,
+          "y": 8
+        }
+      ],
+      "path": "E5,J7",
+      "path_min_size": 52,
+      "ply": 2,
+      "save_file": "saves/seed_0103_E5__J7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E5,J7"
+    },
+    {
+      "last_move_size": 52,
+      "last_move_value": -0.937,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "G8",
+          "ply": 2,
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "path": "H6,G8",
+      "path_min_size": 52,
+      "ply": 2,
+      "save_file": "saves/seed_0104_H6__G8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,G8"
+    },
+    {
+      "last_move_size": 51,
+      "last_move_value": -0.883,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "F4,F7",
+      "path_min_size": 51,
+      "ply": 2,
+      "save_file": "saves/seed_0105_F4__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,F7"
+    },
+    {
+      "last_move_size": 51,
+      "last_move_value": -0.866,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "G4,H6",
+      "path_min_size": 51,
+      "ply": 2,
+      "save_file": "saves/seed_0106_G4__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,H6"
+    },
+    {
+      "last_move_size": 51,
+      "last_move_value": -0.93,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "G5,H7",
+      "path_min_size": 51,
+      "ply": 2,
+      "save_file": "saves/seed_0107_G5__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,H7"
+    },
+    {
+      "last_move_size": 50,
+      "last_move_value": -0.945,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "F5,G7",
+      "path_min_size": 50,
+      "ply": 2,
+      "save_file": "saves/seed_0108_F5__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,G7"
+    },
+    {
+      "last_move_size": 50,
+      "last_move_value": -0.912,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "G8",
+          "ply": 2,
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "path": "G6,G8",
+      "path_min_size": 50,
+      "ply": 2,
+      "save_file": "saves/seed_0109_G6__G8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,G8"
+    },
+    {
+      "last_move_size": 49,
+      "last_move_value": -0.89,
+      "moves": [
+        {
+          "notation": "G4",
+          "ply": 1,
+          "x": 6,
+          "y": 11
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "G4,G7",
+      "path_min_size": 49,
+      "ply": 2,
+      "save_file": "saves/seed_0110_G4__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G4,G7"
+    },
+    {
+      "last_move_size": 48,
+      "last_move_value": -0.792,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "E4,G5",
+      "path_min_size": 48,
+      "ply": 2,
+      "save_file": "saves/seed_0111_E4__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,G5"
+    },
+    {
+      "last_move_size": 48,
+      "last_move_value": -0.932,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "F6,H6",
+      "path_min_size": 48,
+      "ply": 2,
+      "save_file": "saves/seed_0112_F6__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,H6"
+    },
+    {
+      "last_move_size": 48,
+      "last_move_value": -0.882,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "H4,F5",
+      "path_min_size": 48,
+      "ply": 2,
+      "save_file": "saves/seed_0113_H4__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,F5"
+    },
+    {
+      "last_move_size": 48,
+      "last_move_value": -0.865,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "H6,H5",
+      "path_min_size": 48,
+      "ply": 2,
+      "save_file": "saves/seed_0114_H6__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,H5"
+    },
+    {
+      "last_move_size": 48,
+      "last_move_value": -0.939,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "H8,H6",
+      "path_min_size": 48,
+      "ply": 2,
+      "save_file": "saves/seed_0115_H8__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,H6"
+    },
+    {
+      "last_move_size": 47,
+      "last_move_value": -0.913,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "E7",
+          "ply": 2,
+          "x": 4,
+          "y": 8
+        }
+      ],
+      "path": "E4,E7",
+      "path_min_size": 47,
+      "ply": 2,
+      "save_file": "saves/seed_0116_E4__E7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,E7"
+    },
+    {
+      "last_move_size": 47,
+      "last_move_value": -0.688,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "G3,H6",
+      "path_min_size": 47,
+      "ply": 2,
+      "save_file": "saves/seed_0117_G3__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,H6"
+    },
+    {
+      "last_move_size": 46,
+      "last_move_value": -0.678,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "H3,G5",
+      "path_min_size": 46,
+      "ply": 2,
+      "save_file": "saves/seed_0118_H3__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,G5"
+    },
+    {
+      "last_move_size": 46,
+      "last_move_value": -0.886,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "H5,H4",
+      "path_min_size": 46,
+      "ply": 2,
+      "save_file": "saves/seed_0119_H5__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,H4"
+    },
+    {
+      "last_move_size": 45,
+      "last_move_value": -0.719,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "E4",
+          "ply": 2,
+          "x": 4,
+          "y": 11
+        }
+      ],
+      "path": "D4,E4",
+      "path_min_size": 45,
+      "ply": 2,
+      "save_file": "saves/seed_0120_D4__E4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,E4"
+    },
+    {
+      "last_move_size": 45,
+      "last_move_value": -0.694,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "F3,F5",
+      "path_min_size": 45,
+      "ply": 2,
+      "save_file": "saves/seed_0121_F3__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,F5"
+    },
+    {
+      "last_move_size": 44,
+      "last_move_value": -0.625,
+      "moves": [
+        {
+          "notation": "E3",
+          "ply": 1,
+          "x": 4,
+          "y": 12
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "E3,F5",
+      "path_min_size": 44,
+      "ply": 2,
+      "save_file": "saves/seed_0122_E3__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E3,F5"
+    },
+    {
+      "last_move_size": 44,
+      "last_move_value": -0.808,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "E4,F4",
+      "path_min_size": 44,
+      "ply": 2,
+      "save_file": "saves/seed_0123_E4__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,F4"
+    },
+    {
+      "last_move_size": 44,
+      "last_move_value": -0.804,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "E4,F6",
+      "path_min_size": 44,
+      "ply": 2,
+      "save_file": "saves/seed_0124_E4__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,F6"
+    },
+    {
+      "last_move_size": 44,
+      "last_move_value": -0.883,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "F6,G7",
+      "path_min_size": 44,
+      "ply": 2,
+      "save_file": "saves/seed_0125_F6__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,G7"
+    },
+    {
+      "last_move_size": 43,
+      "last_move_value": -0.736,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "F3,F4",
+      "path_min_size": 43,
+      "ply": 2,
+      "save_file": "saves/seed_0126_F3__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,F4"
+    },
+    {
+      "last_move_size": 43,
+      "last_move_value": -0.73,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "G3,G4",
+      "path_min_size": 43,
+      "ply": 2,
+      "save_file": "saves/seed_0127_G3__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,G4"
+    },
+    {
+      "last_move_size": 42,
+      "last_move_value": -0.673,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "F3,E5",
+      "path_min_size": 42,
+      "ply": 2,
+      "save_file": "saves/seed_0128_F3__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,E5"
+    },
+    {
+      "last_move_size": 42,
+      "last_move_value": -0.69,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "F3,G5",
+      "path_min_size": 42,
+      "ply": 2,
+      "save_file": "saves/seed_0129_F3__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,G5"
+    },
+    {
+      "last_move_size": 42,
+      "last_move_value": -0.685,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "F3,H6",
+      "path_min_size": 42,
+      "ply": 2,
+      "save_file": "saves/seed_0130_F3__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,H6"
+    },
+    {
+      "last_move_size": 42,
+      "last_move_value": -0.867,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "H3,F6",
+      "path_min_size": 42,
+      "ply": 2,
+      "save_file": "saves/seed_0131_H3__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,F6"
+    },
+    {
+      "last_move_size": 42,
+      "last_move_value": -0.737,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "H3,G4",
+      "path_min_size": 42,
+      "ply": 2,
+      "save_file": "saves/seed_0132_H3__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,G4"
+    },
+    {
+      "last_move_size": 42,
+      "last_move_value": -0.986,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "H11",
+          "ply": 2,
+          "x": 7,
+          "y": 4
+        }
+      ],
+      "path": "H5,H11",
+      "path_min_size": 42,
+      "ply": 2,
+      "save_file": "saves/seed_0133_H5__H11.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,H11"
+    },
+    {
+      "last_move_size": 41,
+      "last_move_value": -0.395,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "D3,E6",
+      "path_min_size": 41,
+      "ply": 2,
+      "save_file": "saves/seed_0134_D3__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,E6"
+    },
+    {
+      "last_move_size": 41,
+      "last_move_value": -0.692,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "G3,H5",
+      "path_min_size": 41,
+      "ply": 2,
+      "save_file": "saves/seed_0135_G3__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,H5"
+    },
+    {
+      "last_move_size": 40,
+      "last_move_value": -0.819,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "D4,G5",
+      "path_min_size": 40,
+      "ply": 2,
+      "save_file": "saves/seed_0136_D4__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,G5"
+    },
+    {
+      "last_move_size": 40,
+      "last_move_value": -0.888,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "E4,F7",
+      "path_min_size": 40,
+      "ply": 2,
+      "save_file": "saves/seed_0137_E4__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,F7"
+    },
+    {
+      "last_move_size": 40,
+      "last_move_value": -0.888,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "E4,G6",
+      "path_min_size": 40,
+      "ply": 2,
+      "save_file": "saves/seed_0138_E4__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,G6"
+    },
+    {
+      "last_move_size": 40,
+      "last_move_value": -0.704,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "F3,G6",
+      "path_min_size": 40,
+      "ply": 2,
+      "save_file": "saves/seed_0139_F3__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,G6"
+    },
+    {
+      "last_move_size": 40,
+      "last_move_value": -0.862,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "G7,F6",
+      "path_min_size": 40,
+      "ply": 2,
+      "save_file": "saves/seed_0140_G7__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,F6"
+    },
+    {
+      "last_move_size": 40,
+      "last_move_value": -0.73,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H3,G6",
+      "path_min_size": 40,
+      "ply": 2,
+      "save_file": "saves/seed_0141_H3__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,G6"
+    },
+    {
+      "last_move_size": 39,
+      "last_move_value": -0.595,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "D4,E5",
+      "path_min_size": 39,
+      "ply": 2,
+      "save_file": "saves/seed_0142_D4__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,E5"
+    },
+    {
+      "last_move_size": 39,
+      "last_move_value": -0.786,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "F3,H5",
+      "path_min_size": 39,
+      "ply": 2,
+      "save_file": "saves/seed_0143_F3__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,H5"
+    },
+    {
+      "last_move_size": 39,
+      "last_move_value": -0.719,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "G3,F6",
+      "path_min_size": 39,
+      "ply": 2,
+      "save_file": "saves/seed_0144_G3__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,F6"
+    },
+    {
+      "last_move_size": 39,
+      "last_move_value": -0.59,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "H3,H6",
+      "path_min_size": 39,
+      "ply": 2,
+      "save_file": "saves/seed_0145_H3__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,H6"
+    },
+    {
+      "last_move_size": 39,
+      "last_move_value": -0.907,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "H7,H6",
+      "path_min_size": 39,
+      "ply": 2,
+      "save_file": "saves/seed_0146_H7__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,H6"
+    },
+    {
+      "last_move_size": 38,
+      "last_move_value": -0.921,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "H3,F5",
+      "path_min_size": 38,
+      "ply": 2,
+      "save_file": "saves/seed_0147_H3__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,F5"
+    },
+    {
+      "last_move_size": 38,
+      "last_move_value": -0.694,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "H3,H5",
+      "path_min_size": 38,
+      "ply": 2,
+      "save_file": "saves/seed_0148_H3__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,H5"
+    },
+    {
+      "last_move_size": 37,
+      "last_move_value": -0.804,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "D4,G6",
+      "path_min_size": 37,
+      "ply": 2,
+      "save_file": "saves/seed_0149_D4__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,G6"
+    },
+    {
+      "last_move_size": 37,
+      "last_move_value": -0.996,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "K10",
+          "ply": 2,
+          "x": 9,
+          "y": 5
+        }
+      ],
+      "path": "G7,K10",
+      "path_min_size": 37,
+      "ply": 2,
+      "save_file": "saves/seed_0150_G7__K10.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,K10"
+    },
+    {
+      "last_move_size": 36,
+      "last_move_value": -0.717,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "D4,F4",
+      "path_min_size": 36,
+      "ply": 2,
+      "save_file": "saves/seed_0151_D4__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,F4"
+    },
+    {
+      "last_move_size": 36,
+      "last_move_value": -0.1,
+      "moves": [
+        {
+          "notation": "G2",
+          "ply": 1,
+          "x": 6,
+          "y": 13
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "G2,G5",
+      "path_min_size": 36,
+      "ply": 2,
+      "save_file": "saves/seed_0152_G2__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G2,G5"
+    },
+    {
+      "last_move_size": 36,
+      "last_move_value": -0.889,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "H6,H7",
+      "path_min_size": 36,
+      "ply": 2,
+      "save_file": "saves/seed_0153_H6__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,H7"
+    },
+    {
+      "last_move_size": 36,
+      "last_move_value": -0.964,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "H10",
+          "ply": 2,
+          "x": 7,
+          "y": 5
+        }
+      ],
+      "path": "H7,H10",
+      "path_min_size": 36,
+      "ply": 2,
+      "save_file": "saves/seed_0154_H7__H10.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,H10"
+    },
+    {
+      "last_move_size": 36,
+      "last_move_value": -0.933,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "H9",
+          "ply": 2,
+          "x": 7,
+          "y": 6
+        }
+      ],
+      "path": "H7,H9",
+      "path_min_size": 36,
+      "ply": 2,
+      "save_file": "saves/seed_0155_H7__H9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,H9"
+    },
+    {
+      "last_move_size": 35,
+      "last_move_value": -0.295,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "D3,F6",
+      "path_min_size": 35,
+      "ply": 2,
+      "save_file": "saves/seed_0156_D3__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,F6"
+    },
+    {
+      "last_move_size": 35,
+      "last_move_value": -0.693,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "G3,F5",
+      "path_min_size": 35,
+      "ply": 2,
+      "save_file": "saves/seed_0157_G3__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,F5"
+    },
+    {
+      "last_move_size": 35,
+      "last_move_value": -0.7,
+      "moves": [
+        {
+          "notation": "G3",
+          "ply": 1,
+          "x": 6,
+          "y": 12
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "G3,G5",
+      "path_min_size": 35,
+      "ply": 2,
+      "save_file": "saves/seed_0158_G3__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G3,G5"
+    },
+    {
+      "last_move_size": 35,
+      "last_move_value": -0.862,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "H8",
+          "ply": 2,
+          "x": 7,
+          "y": 7
+        }
+      ],
+      "path": "G7,H8",
+      "path_min_size": 35,
+      "ply": 2,
+      "save_file": "saves/seed_0159_G7__H8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,H8"
+    },
+    {
+      "last_move_size": 35,
+      "last_move_value": -0.968,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "J9",
+          "ply": 2,
+          "x": 8,
+          "y": 6
+        }
+      ],
+      "path": "G7,J9",
+      "path_min_size": 35,
+      "ply": 2,
+      "save_file": "saves/seed_0160_G7__J9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,J9"
+    },
+    {
+      "last_move_size": 34,
+      "last_move_value": -0.974,
+      "moves": [
+        {
+          "notation": "E5",
+          "ply": 1,
+          "x": 4,
+          "y": 10
+        },
+        {
+          "notation": "H8",
+          "ply": 2,
+          "x": 7,
+          "y": 7
+        }
+      ],
+      "path": "E5,H8",
+      "path_min_size": 34,
+      "ply": 2,
+      "save_file": "saves/seed_0161_E5__H8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E5,H8"
+    },
+    {
+      "last_move_size": 34,
+      "last_move_value": -0.918,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "H6,H4",
+      "path_min_size": 34,
+      "ply": 2,
+      "save_file": "saves/seed_0162_H6__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,H4"
+    },
+    {
+      "last_move_size": 33,
+      "last_move_value": -0.852,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "H4,H6",
+      "path_min_size": 33,
+      "ply": 2,
+      "save_file": "saves/seed_0163_H4__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,H6"
+    },
+    {
+      "last_move_size": 33,
+      "last_move_value": -0.92,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "H8",
+          "ply": 2,
+          "x": 7,
+          "y": 7
+        }
+      ],
+      "path": "H6,H8",
+      "path_min_size": 33,
+      "ply": 2,
+      "save_file": "saves/seed_0164_H6__H8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,H8"
+    },
+    {
+      "last_move_size": 33,
+      "last_move_value": -0.913,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "H7,H5",
+      "path_min_size": 33,
+      "ply": 2,
+      "save_file": "saves/seed_0165_H7__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,H5"
+    },
+    {
+      "last_move_size": 31,
+      "last_move_value": -0.875,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "F6,E5",
+      "path_min_size": 31,
+      "ply": 2,
+      "save_file": "saves/seed_0166_F6__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,E5"
+    },
+    {
+      "last_move_size": 30,
+      "last_move_value": -0.93,
+      "moves": [
+        {
+          "notation": "H4",
+          "ply": 1,
+          "x": 7,
+          "y": 11
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "H4,H7",
+      "path_min_size": 30,
+      "ply": 2,
+      "save_file": "saves/seed_0167_H4__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H4,H7"
+    },
+    {
+      "last_move_size": 30,
+      "last_move_value": -0.874,
+      "moves": [
+        {
+          "notation": "H5",
+          "ply": 1,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "H5,H7",
+      "path_min_size": 30,
+      "ply": 2,
+      "save_file": "saves/seed_0168_H5__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H5,H7"
+    },
+    {
+      "last_move_size": 28,
+      "last_move_value": -0.57,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "D3,F5",
+      "path_min_size": 28,
+      "ply": 2,
+      "save_file": "saves/seed_0169_D3__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,F5"
+    },
+    {
+      "last_move_size": 28,
+      "last_move_value": -0.916,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "E7",
+          "ply": 2,
+          "x": 4,
+          "y": 8
+        }
+      ],
+      "path": "F5,E7",
+      "path_min_size": 28,
+      "ply": 2,
+      "save_file": "saves/seed_0170_F5__E7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,E7"
+    },
+    {
+      "last_move_size": 28,
+      "last_move_value": -0.856,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "G6,F7",
+      "path_min_size": 28,
+      "ply": 2,
+      "save_file": "saves/seed_0171_G6__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,F7"
+    },
+    {
+      "last_move_size": 27,
+      "last_move_value": -0.907,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "G6,H6",
+      "path_min_size": 27,
+      "ply": 2,
+      "save_file": "saves/seed_0172_G6__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,H6"
+    },
+    {
+      "last_move_size": 26,
+      "last_move_value": -0.035,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "F2,G6",
+      "path_min_size": 26,
+      "ply": 2,
+      "save_file": "saves/seed_0173_F2__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,G6"
+    },
+    {
+      "last_move_size": 26,
+      "last_move_value": -0.932,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "J6",
+          "ply": 2,
+          "x": 8,
+          "y": 9
+        }
+      ],
+      "path": "G7,J6",
+      "path_min_size": 26,
+      "ply": 2,
+      "save_file": "saves/seed_0174_G7__J6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,J6"
+    },
+    {
+      "last_move_size": 26,
+      "last_move_value": -0.736,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "H3,H4",
+      "path_min_size": 26,
+      "ply": 2,
+      "save_file": "saves/seed_0175_H3__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,H4"
+    },
+    {
+      "last_move_size": 25,
+      "last_move_value": 0.122,
+      "moves": [
+        {
+          "notation": "E2",
+          "ply": 1,
+          "x": 4,
+          "y": 13
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "E2,E5",
+      "path_min_size": 25,
+      "ply": 2,
+      "save_file": "saves/seed_0176_E2__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E2,E5"
+    },
+    {
+      "last_move_size": 25,
+      "last_move_value": 0.013,
+      "moves": [
+        {
+          "notation": "E2",
+          "ply": 1,
+          "x": 4,
+          "y": 13
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "E2,F5",
+      "path_min_size": 25,
+      "ply": 2,
+      "save_file": "saves/seed_0177_E2__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E2,F5"
+    },
+    {
+      "last_move_size": 24,
+      "last_move_value": -0.196,
+      "moves": [
+        {
+          "notation": "G2",
+          "ply": 1,
+          "x": 6,
+          "y": 13
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "G2,F5",
+      "path_min_size": 24,
+      "ply": 2,
+      "save_file": "saves/seed_0178_G2__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G2,F5"
+    },
+    {
+      "last_move_size": 24,
+      "last_move_value": -0.627,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "H2,G7",
+      "path_min_size": 24,
+      "ply": 2,
+      "save_file": "saves/seed_0179_H2__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,G7"
+    },
+    {
+      "last_move_size": 23,
+      "last_move_value": 0.02,
+      "moves": [
+        {
+          "notation": "C3",
+          "ply": 1,
+          "x": 2,
+          "y": 12
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "C3,F4",
+      "path_min_size": 23,
+      "ply": 2,
+      "save_file": "saves/seed_0180_C3__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C3,F4"
+    },
+    {
+      "last_move_size": 23,
+      "last_move_value": 0.259,
+      "moves": [
+        {
+          "notation": "C3",
+          "ply": 1,
+          "x": 2,
+          "y": 12
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "C3,F6",
+      "path_min_size": 23,
+      "ply": 2,
+      "save_file": "saves/seed_0181_C3__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C3,F6"
+    },
+    {
+      "last_move_size": 23,
+      "last_move_value": -0.194,
+      "moves": [
+        {
+          "notation": "G2",
+          "ply": 1,
+          "x": 6,
+          "y": 13
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "G2,G6",
+      "path_min_size": 23,
+      "ply": 2,
+      "save_file": "saves/seed_0182_G2__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G2,G6"
+    },
+    {
+      "last_move_size": 22,
+      "last_move_value": -0.951,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "G8",
+          "ply": 2,
+          "x": 6,
+          "y": 7
+        }
+      ],
+      "path": "F5,G8",
+      "path_min_size": 22,
+      "ply": 2,
+      "save_file": "saves/seed_0183_F5__G8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,G8"
+    },
+    {
+      "last_move_size": 22,
+      "last_move_value": -0.934,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "H9",
+          "ply": 2,
+          "x": 7,
+          "y": 6
+        }
+      ],
+      "path": "G6,H9",
+      "path_min_size": 22,
+      "ply": 2,
+      "save_file": "saves/seed_0184_G6__H9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,H9"
+    },
+    {
+      "last_move_size": 22,
+      "last_move_value": -0.838,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "H7",
+          "ply": 2,
+          "x": 7,
+          "y": 8
+        }
+      ],
+      "path": "H3,H7",
+      "path_min_size": 22,
+      "ply": 2,
+      "save_file": "saves/seed_0185_H3__H7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,H7"
+    },
+    {
+      "last_move_size": 21,
+      "last_move_value": -0.468,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "D3,G5",
+      "path_min_size": 21,
+      "ply": 2,
+      "save_file": "saves/seed_0186_D3__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,G5"
+    },
+    {
+      "last_move_size": 21,
+      "last_move_value": -0.208,
+      "moves": [
+        {
+          "notation": "E2",
+          "ply": 1,
+          "x": 4,
+          "y": 13
+        },
+        {
+          "notation": "E4",
+          "ply": 2,
+          "x": 4,
+          "y": 11
+        }
+      ],
+      "path": "E2,E4",
+      "path_min_size": 21,
+      "ply": 2,
+      "save_file": "saves/seed_0187_E2__E4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E2,E4"
+    },
+    {
+      "last_move_size": 21,
+      "last_move_value": -0.003,
+      "moves": [
+        {
+          "notation": "E2",
+          "ply": 1,
+          "x": 4,
+          "y": 13
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "E2,G6",
+      "path_min_size": 21,
+      "ply": 2,
+      "save_file": "saves/seed_0188_E2__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E2,G6"
+    },
+    {
+      "last_move_size": 21,
+      "last_move_value": -0.358,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "F2,F6",
+      "path_min_size": 21,
+      "ply": 2,
+      "save_file": "saves/seed_0189_F2__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,F6"
+    },
+    {
+      "last_move_size": 21,
+      "last_move_value": -0.246,
+      "moves": [
+        {
+          "notation": "G2",
+          "ply": 1,
+          "x": 6,
+          "y": 13
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "G2,H5",
+      "path_min_size": 21,
+      "ply": 2,
+      "save_file": "saves/seed_0190_G2__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G2,H5"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.409,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "E4",
+          "ply": 2,
+          "x": 4,
+          "y": 11
+        }
+      ],
+      "path": "D3,E4",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0191_D3__E4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,E4"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.467,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "D3,F4",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0192_D3__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,F4"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.612,
+      "moves": [
+        {
+          "notation": "E3",
+          "ply": 1,
+          "x": 4,
+          "y": 12
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "E3,G5",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0193_E3__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E3,G5"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.892,
+      "moves": [
+        {
+          "notation": "E4",
+          "ply": 1,
+          "x": 4,
+          "y": 11
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "E4,H5",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0194_E4__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E4,H5"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.217,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "F2,E6",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0195_F2__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,E6"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.256,
+      "moves": [
+        {
+          "notation": "G2",
+          "ply": 1,
+          "x": 6,
+          "y": 13
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "G2,F6",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0196_G2__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G2,F6"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.968,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "G9",
+          "ply": 2,
+          "x": 6,
+          "y": 6
+        }
+      ],
+      "path": "G6,G9",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0197_G6__G9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,G9"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.96,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "K7",
+          "ply": 2,
+          "x": 9,
+          "y": 8
+        }
+      ],
+      "path": "G6,K7",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0198_G6__K7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,K7"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.616,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "H2,F6",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0199_H2__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,F6"
+    },
+    {
+      "last_move_size": 20,
+      "last_move_value": -0.278,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "H2,G4",
+      "path_min_size": 20,
+      "ply": 2,
+      "save_file": "saves/seed_0200_H2__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,G4"
+    },
+    {
+      "last_move_size": 19,
+      "last_move_value": 0.113,
+      "moves": [
+        {
+          "notation": "B2",
+          "ply": 1,
+          "x": 1,
+          "y": 13
+        },
+        {
+          "notation": "G3",
+          "ply": 2,
+          "x": 6,
+          "y": 12
+        }
+      ],
+      "path": "B2,G3",
+      "path_min_size": 19,
+      "ply": 2,
+      "save_file": "saves/seed_0201_B2__G3.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/B2,G3"
+    },
+    {
+      "last_move_size": 19,
+      "last_move_value": 0.32,
+      "moves": [
+        {
+          "notation": "C3",
+          "ply": 1,
+          "x": 2,
+          "y": 12
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "C3,G6",
+      "path_min_size": 19,
+      "ply": 2,
+      "save_file": "saves/seed_0202_C3__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C3,G6"
+    },
+    {
+      "last_move_size": 19,
+      "last_move_value": -0.378,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "E5",
+          "ply": 2,
+          "x": 4,
+          "y": 10
+        }
+      ],
+      "path": "D3,E5",
+      "path_min_size": 19,
+      "ply": 2,
+      "save_file": "saves/seed_0203_D3__E5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,E5"
+    },
+    {
+      "last_move_size": 19,
+      "last_move_value": -0.974,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "H8",
+          "ply": 2,
+          "x": 7,
+          "y": 7
+        }
+      ],
+      "path": "G5,H8",
+      "path_min_size": 19,
+      "ply": 2,
+      "save_file": "saves/seed_0204_G5__H8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,H8"
+    },
+    {
+      "last_move_size": 19,
+      "last_move_value": -0.918,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "G7,H5",
+      "path_min_size": 19,
+      "ply": 2,
+      "save_file": "saves/seed_0205_G7__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,H5"
+    },
+    {
+      "last_move_size": 19,
+      "last_move_value": -0.286,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "H2,G6",
+      "path_min_size": 19,
+      "ply": 2,
+      "save_file": "saves/seed_0206_H2__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,G6"
+    },
+    {
+      "last_move_size": 18,
+      "last_move_value": 0.013,
+      "moves": [
+        {
+          "notation": "E2",
+          "ply": 1,
+          "x": 4,
+          "y": 13
+        },
+        {
+          "notation": "E6",
+          "ply": 2,
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "path": "E2,E6",
+      "path_min_size": 18,
+      "ply": 2,
+      "save_file": "saves/seed_0207_E2__E6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E2,E6"
+    },
+    {
+      "last_move_size": 18,
+      "last_move_value": -0.945,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "J7",
+          "ply": 2,
+          "x": 8,
+          "y": 8
+        }
+      ],
+      "path": "F6,J7",
+      "path_min_size": 18,
+      "ply": 2,
+      "save_file": "saves/seed_0208_F6__J7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,J7"
+    },
+    {
+      "last_move_size": 18,
+      "last_move_value": -0.201,
+      "moves": [
+        {
+          "notation": "G2",
+          "ply": 1,
+          "x": 6,
+          "y": 13
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "G2,G4",
+      "path_min_size": 18,
+      "ply": 2,
+      "save_file": "saves/seed_0209_G2__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G2,G4"
+    },
+    {
+      "last_move_size": 18,
+      "last_move_value": -0.881,
+      "moves": [
+        {
+          "notation": "G5",
+          "ply": 1,
+          "x": 6,
+          "y": 10
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "G5,G7",
+      "path_min_size": 18,
+      "ply": 2,
+      "save_file": "saves/seed_0210_G5__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G5,G7"
+    },
+    {
+      "last_move_size": 18,
+      "last_move_value": -0.22,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "H2,H4",
+      "path_min_size": 18,
+      "ply": 2,
+      "save_file": "saves/seed_0211_H2__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,H4"
+    },
+    {
+      "last_move_size": 18,
+      "last_move_value": -0.963,
+      "moves": [
+        {
+          "notation": "H7",
+          "ply": 1,
+          "x": 7,
+          "y": 8
+        },
+        {
+          "notation": "G10",
+          "ply": 2,
+          "x": 6,
+          "y": 5
+        }
+      ],
+      "path": "H7,G10",
+      "path_min_size": 18,
+      "ply": 2,
+      "save_file": "saves/seed_0212_H7__G10.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H7,G10"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": 0.165,
+      "moves": [
+        {
+          "notation": "C3",
+          "ply": 1,
+          "x": 2,
+          "y": 12
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "C3,F5",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0213_C3__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C3,F5"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": -0.037,
+      "moves": [
+        {
+          "notation": "C3",
+          "ply": 1,
+          "x": 2,
+          "y": 12
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "C3,G5",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0214_C3__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C3,G5"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": 0.115,
+      "moves": [
+        {
+          "notation": "D2",
+          "ply": 1,
+          "x": 3,
+          "y": 13
+        },
+        {
+          "notation": "D6",
+          "ply": 2,
+          "x": 3,
+          "y": 9
+        }
+      ],
+      "path": "D2,D6",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0215_D2__D6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D2,D6"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": -0.65,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "D3,F7",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0216_D3__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,F7"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": -0.165,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "F2,G5",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0217_F2__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,G5"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": -0.326,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "F2,H5",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0218_F2__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,H5"
+    },
+    {
+      "last_move_size": 17,
+      "last_move_value": -0.919,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "J7",
+          "ply": 2,
+          "x": 8,
+          "y": 8
+        }
+      ],
+      "path": "G6,J7",
+      "path_min_size": 17,
+      "ply": 2,
+      "save_file": "saves/seed_0219_G6__J7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,J7"
+    },
+    {
+      "last_move_size": 16,
+      "last_move_value": -0.727,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "D6",
+          "ply": 2,
+          "x": 3,
+          "y": 9
+        }
+      ],
+      "path": "D3,D6",
+      "path_min_size": 16,
+      "ply": 2,
+      "save_file": "saves/seed_0220_D3__D6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,D6"
+    },
+    {
+      "last_move_size": 16,
+      "last_move_value": -0.961,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "J5",
+          "ply": 2,
+          "x": 8,
+          "y": 10
+        }
+      ],
+      "path": "F4,J5",
+      "path_min_size": 16,
+      "ply": 2,
+      "save_file": "saves/seed_0221_F4__J5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,J5"
+    },
+    {
+      "last_move_size": 16,
+      "last_move_value": -0.866,
+      "moves": [
+        {
+          "notation": "G6",
+          "ply": 1,
+          "x": 6,
+          "y": 9
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "G6,G4",
+      "path_min_size": 16,
+      "ply": 2,
+      "save_file": "saves/seed_0222_G6__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G6,G4"
+    },
+    {
+      "last_move_size": 16,
+      "last_move_value": -0.957,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "F6",
+          "ply": 2,
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "path": "H8,F6",
+      "path_min_size": 16,
+      "ply": 2,
+      "save_file": "saves/seed_0223_H8__F6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,F6"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.04,
+      "moves": [
+        {
+          "notation": "C3",
+          "ply": 1,
+          "x": 2,
+          "y": 12
+        },
+        {
+          "notation": "E4",
+          "ply": 2,
+          "x": 4,
+          "y": 11
+        }
+      ],
+      "path": "C3,E4",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0224_C3__E4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C3,E4"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.199,
+      "moves": [
+        {
+          "notation": "E2",
+          "ply": 1,
+          "x": 4,
+          "y": 13
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "E2,G5",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0225_E2__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/E2,G5"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.345,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "G4",
+          "ply": 2,
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "path": "F2,G4",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0226_F2__G4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,G4"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.291,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "F2,H6",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0227_F2__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,H6"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.949,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "L8",
+          "ply": 2,
+          "x": 10,
+          "y": 7
+        }
+      ],
+      "path": "G7,L8",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0228_G7__L8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,L8"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.216,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "H6",
+          "ply": 2,
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "path": "H2,H6",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0229_H2__H6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,H6"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.862,
+      "moves": [
+        {
+          "notation": "H3",
+          "ply": 1,
+          "x": 7,
+          "y": 12
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "H3,G7",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0230_H3__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H3,G7"
+    },
+    {
+      "last_move_size": 15,
+      "last_move_value": -0.954,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "G9",
+          "ply": 2,
+          "x": 6,
+          "y": 6
+        }
+      ],
+      "path": "H6,G9",
+      "path_min_size": 15,
+      "ply": 2,
+      "save_file": "saves/seed_0231_H6__G9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,G9"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": 0.182,
+      "moves": [
+        {
+          "notation": "B2",
+          "ply": 1,
+          "x": 1,
+          "y": 13
+        },
+        {
+          "notation": "E3",
+          "ply": 2,
+          "x": 4,
+          "y": 12
+        }
+      ],
+      "path": "B2,E3",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0232_B2__E3.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/B2,E3"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.391,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "D5",
+          "ply": 2,
+          "x": 3,
+          "y": 10
+        }
+      ],
+      "path": "D3,D5",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0233_D3__D5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,D5"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.803,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "E7",
+          "ply": 2,
+          "x": 4,
+          "y": 8
+        }
+      ],
+      "path": "D3,E7",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0234_D3__E7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,E7"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.096,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "F4",
+          "ply": 2,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "F2,F4",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0235_F2__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,F4"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.955,
+      "moves": [
+        {
+          "notation": "G7",
+          "ply": 1,
+          "x": 6,
+          "y": 8
+        },
+        {
+          "notation": "L7",
+          "ply": 2,
+          "x": 10,
+          "y": 8
+        }
+      ],
+      "path": "G7,L7",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0236_G7__L7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/G7,L7"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.269,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "G5",
+          "ply": 2,
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "path": "H2,G5",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0237_H2__G5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,G5"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.945,
+      "moves": [
+        {
+          "notation": "H6",
+          "ply": 1,
+          "x": 7,
+          "y": 9
+        },
+        {
+          "notation": "H9",
+          "ply": 2,
+          "x": 7,
+          "y": 6
+        }
+      ],
+      "path": "H6,H9",
+      "path_min_size": 14,
+      "ply": 2,
+      "save_file": "saves/seed_0238_H6__H9.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H6,H9"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.215,
+      "moves": [
+        {
+          "notation": "F2",
+          "ply": 1,
+          "x": 5,
+          "y": 13
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "F4",
+          "ply": 3,
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "path": "F2,F5,F4",
+      "path_min_size": 14,
+      "ply": 3,
+      "save_file": "saves/seed_0239_F2__F5__F4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F2,F5,F4"
+    },
+    {
+      "last_move_size": 14,
+      "last_move_value": -0.215,
+      "moves": [
+        {
+          "notation": "F4",
+          "ply": 1,
+          "x": 5,
+          "y": 11
+        },
+        {
+          "notation": "F5",
+          "ply": 2,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "F2",
+          "ply": 3,
+          "x": 5,
+          "y": 13
+        }
+      ],
+      "path": "F4,F5,F2",
+      "path_min_size": 14,
+      "ply": 3,
+      "save_file": "saves/seed_0240_F4__F5__F2.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F4,F5,F2"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": 0.258,
+      "moves": [
+        {
+          "notation": "B2",
+          "ply": 1,
+          "x": 1,
+          "y": 13
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "B2,H4",
+      "path_min_size": 13,
+      "ply": 2,
+      "save_file": "saves/seed_0241_B2__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/B2,H4"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.465,
+      "moves": [
+        {
+          "notation": "C2",
+          "ply": 1,
+          "x": 2,
+          "y": 13
+        },
+        {
+          "notation": "H4",
+          "ply": 2,
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "path": "C2,H4",
+      "path_min_size": 13,
+      "ply": 2,
+      "save_file": "saves/seed_0242_C2__H4.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C2,H4"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.041,
+      "moves": [
+        {
+          "notation": "D2",
+          "ply": 1,
+          "x": 3,
+          "y": 13
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "D2,F7",
+      "path_min_size": 13,
+      "ply": 2,
+      "save_file": "saves/seed_0243_D2__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D2,F7"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.484,
+      "moves": [
+        {
+          "notation": "D3",
+          "ply": 1,
+          "x": 3,
+          "y": 12
+        },
+        {
+          "notation": "G6",
+          "ply": 2,
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "path": "D3,G6",
+      "path_min_size": 13,
+      "ply": 2,
+      "save_file": "saves/seed_0244_D3__G6.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D3,G6"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.838,
+      "moves": [
+        {
+          "notation": "F3",
+          "ply": 1,
+          "x": 5,
+          "y": 12
+        },
+        {
+          "notation": "F7",
+          "ply": 2,
+          "x": 5,
+          "y": 8
+        }
+      ],
+      "path": "F3,F7",
+      "path_min_size": 13,
+      "ply": 2,
+      "save_file": "saves/seed_0245_F3__F7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F3,F7"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.971,
+      "moves": [
+        {
+          "notation": "H8",
+          "ply": 1,
+          "x": 7,
+          "y": 7
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "path": "H8,H5",
+      "path_min_size": 13,
+      "ply": 2,
+      "save_file": "saves/seed_0246_H8__H5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H8,H5"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.112,
+      "moves": [
+        {
+          "notation": "F5",
+          "ply": 1,
+          "x": 5,
+          "y": 10
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "H2",
+          "ply": 3,
+          "x": 7,
+          "y": 13
+        }
+      ],
+      "path": "F5,H5,H2",
+      "path_min_size": 13,
+      "ply": 3,
+      "save_file": "saves/seed_0247_F5__H5__H2.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F5,H5,H2"
+    },
+    {
+      "last_move_size": 13,
+      "last_move_value": -0.112,
+      "moves": [
+        {
+          "notation": "H2",
+          "ply": 1,
+          "x": 7,
+          "y": 13
+        },
+        {
+          "notation": "H5",
+          "ply": 2,
+          "x": 7,
+          "y": 10
+        },
+        {
+          "notation": "F5",
+          "ply": 3,
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "path": "H2,H5,F5",
+      "path_min_size": 13,
+      "ply": 3,
+      "save_file": "saves/seed_0248_H2__H5__F5.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/H2,H5,F5"
+    },
+    {
+      "last_move_size": 12,
+      "last_move_value": -0.155,
+      "moves": [
+        {
+          "notation": "A1",
+          "ply": 1,
+          "x": 0,
+          "y": 14
+        },
+        {
+          "notation": "F2",
+          "ply": 2,
+          "x": 5,
+          "y": 13
+        }
+      ],
+      "path": "A1,F2",
+      "path_min_size": 12,
+      "ply": 2,
+      "save_file": "saves/seed_0249_A1__F2.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/A1,F2"
+    },
+    {
+      "last_move_size": 12,
+      "last_move_value": 0.128,
+      "moves": [
+        {
+          "notation": "C2",
+          "ply": 1,
+          "x": 2,
+          "y": 13
+        },
+        {
+          "notation": "E8",
+          "ply": 2,
+          "x": 4,
+          "y": 7
+        }
+      ],
+      "path": "C2,E8",
+      "path_min_size": 12,
+      "ply": 2,
+      "save_file": "saves/seed_0250_C2__E8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C2,E8"
+    },
+    {
+      "last_move_size": 12,
+      "last_move_value": 0.048,
+      "moves": [
+        {
+          "notation": "C2",
+          "ply": 1,
+          "x": 2,
+          "y": 13
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "C2,G7",
+      "path_min_size": 12,
+      "ply": 2,
+      "save_file": "saves/seed_0251_C2__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/C2,G7"
+    },
+    {
+      "last_move_size": 12,
+      "last_move_value": -0.883,
+      "moves": [
+        {
+          "notation": "D4",
+          "ply": 1,
+          "x": 3,
+          "y": 11
+        },
+        {
+          "notation": "G7",
+          "ply": 2,
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "path": "D4,G7",
+      "path_min_size": 12,
+      "ply": 2,
+      "save_file": "saves/seed_0252_D4__G7.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/D4,G7"
+    },
+    {
+      "last_move_size": 12,
+      "last_move_value": -0.974,
+      "moves": [
+        {
+          "notation": "F6",
+          "ply": 1,
+          "x": 5,
+          "y": 9
+        },
+        {
+          "notation": "K8",
+          "ply": 2,
+          "x": 9,
+          "y": 7
+        }
+      ],
+      "path": "F6,K8",
+      "path_min_size": 12,
+      "ply": 2,
+      "save_file": "saves/seed_0253_F6__K8.json",
+      "terminal_reason": "min_size",
+      "url": "https://www.crazy-sensei.com/book/gomoku_15x15/F6,K8"
+    }
+  ],
+  "source": "https://www.crazy-sensei.com/book/gomoku_15x15/",
+  "stopped_due_to_page_cap": false,
+  "unique_positions_visited": 251
+}

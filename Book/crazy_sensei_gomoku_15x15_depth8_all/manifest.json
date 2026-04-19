@@ -1,0 +1,14 @@
+{
+  "crawled_at": "2026-04-18T21:49:21+00:00",
+  "frontier_remaining": 9442,
+  "max_pages": 600,
+  "max_ply": 8,
+  "min_size": 0,
+  "pages_fetched": 600,
+  "request_delay_s": 0.5,
+  "seed_count": 0,
+  "seeds": [],
+  "source": "https://www.crazy-sensei.com/book/gomoku_15x15/",
+  "stopped_due_to_page_cap": true,
+  "unique_positions_visited": 10007
+}

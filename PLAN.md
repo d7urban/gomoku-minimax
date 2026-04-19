@@ -105,6 +105,20 @@ Build a C++ gomoku program with a graphical desktop UI and a staged engine roadm
 - Profiling on every checkpoint after Checkpoint 2.
 - Keep the engine deterministic by default for test reproducibility, with optional randomness only in opening variety.
 
+## Future Enhancements (Beyond Checkpoint 5)
+
+Inspired by PentaZen's approach and other strong engines, consider these enhancements for future versions:
+
+1. **Enhanced Pattern Databases** - Implement precomputed pattern tables similar to PentaZen for faster, more sophisticated evaluation
+2. **Neural Network Integration** - Following PentaZen 0.5.0+, incorporate neural networks for position evaluation or move guidance
+
+## Implemented Enhancements
+
+- **Enhanced Move Ordering** - Improved with threat-based bonuses, history heuristics with threat-specific values, and center bias for early game
+- **Threat Severity Enhancement** - Better evaluation of threat combinations and positional factors
+- **Late Move Reductions (LMR)** - Reduce search depth for quiet moves to increase search efficiency
+- **Principal Variation Search (PVS/NegaScout)** - More efficient search using null windows for most moves after the first
+
 ## Recommended Build Order
 
 - Finish the UI and rules first so every later engine milestone is immediately playable.

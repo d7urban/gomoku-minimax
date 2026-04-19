@@ -1,3 +1,4 @@
+#include <array>
 #include <cassert>
 #include <string>
 
@@ -5,6 +6,7 @@
 #include "gomoku/ClubAI.hpp"
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/Match.hpp"
+#include "gomoku/OpeningBook.hpp"
 #include "gomoku/ProofSearch.hpp"
 #include "gomoku/Replay.hpp"
 #include "gomoku/TacticalAI.hpp"
@@ -187,6 +189,64 @@ int main() {
         assert(result.summary.usedOpeningBook);
         assert(result.summary.openingBookName == "center_anchor");
         assert(result.summary.principalVariation.size() == 1U);
+    }
+
+    {
+        GameState game(rulesFor(Ruleset::Freestyle15));
+        assert(game.applyMove({7, 7}));
+        assert(game.applyMove({6, 7}));
+        const auto hit = lookupOpeningBookMove(game);
+        assert(hit.has_value());
+        assert(hit->lineName == "diagonal_clamp");
+        assert(hit->move == (Move{6, 8}));
+    }
+
+    {
+        GameState game(rulesFor(Ruleset::Freestyle15));
+        assert(game.applyMove({7, 7}));
+        assert(game.applyMove({7, 6}));
+        const auto hit = lookupOpeningBookMove(game);
+        assert(hit.has_value());
+        assert(hit->lineName == "diagonal_clamp");
+        assert(hit->move == (Move{6, 6}));
+    }
+
+    {
+        GameState game(rulesFor(Ruleset::Freestyle15));
+        assert(game.applyMove({7, 7}));
+        assert(game.applyMove({6, 8}));
+        const auto hit = lookupOpeningBookMove(game);
+        assert(hit.has_value());
+        assert(hit->lineName == "diagonal_split");
+        assert(hit->move == (Move{8, 8}));
+    }
+
+    {
+        // Imported Crazy-Sensei entry cs0002 has prefix (4,5) with reply (3,5).
+        // Exercise each of the 8 D4 symmetries: every transformed first move
+        // must produce the correspondingly transformed reply via the book.
+        struct SymmetryCase {
+            Move firstMove;
+            Move expectedReply;
+        };
+        const std::array<SymmetryCase, 8> cases = {{
+            {{4, 5}, {3, 5}},   // Identity
+            {{5, 10}, {5, 11}}, // Rot90
+            {{10, 9}, {11, 9}}, // Rot180
+            {{9, 4}, {9, 3}},   // Rot270
+            {{4, 9}, {3, 9}},   // MirrorVertical
+            {{10, 5}, {11, 5}}, // MirrorHorizontal
+            {{5, 4}, {5, 3}},   // MirrorMainDiagonal
+            {{9, 10}, {9, 11}}, // MirrorAntiDiagonal
+        }};
+        for (const SymmetryCase& test : cases) {
+            GameState game(rulesFor(Ruleset::Freestyle15));
+            assert(game.applyMove(test.firstMove));
+            const auto hit = lookupOpeningBookMove(game);
+            assert(hit.has_value());
+            assert(hit->lineName.substr(0, 2) == "cs");
+            assert(hit->move == test.expectedReply);
+        }
     }
 
     {

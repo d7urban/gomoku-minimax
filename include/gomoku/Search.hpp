@@ -21,6 +21,9 @@ struct SearchConfig {
     bool useNullMovePruning {true};
     bool useDefensiveFiltering {true};
     bool useOpeningBook {false};
+    bool useVcfAtLeaves {true};
+    int vcfMaxDepth {10};
+    std::uint64_t vcfNodeBudget {600};
 };
 
 struct SearchSummary {
@@ -30,6 +33,8 @@ struct SearchSummary {
     std::uint64_t nodes {0};
     std::uint64_t ttHits {0};
     std::uint64_t threatNodes {0};
+    std::uint64_t vcfNodes {0};
+    int vcfHits {0};
     int rootCandidateCount {0};
     int threatSequenceLength {0};
     bool completedLastDepth {false};

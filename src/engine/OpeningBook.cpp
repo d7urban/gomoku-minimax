@@ -31,16 +31,85 @@ bool matchesAction(const Action& left, const Action& right) {
     return left.swapChoice == right.swapChoice;
 }
 
+enum class Symmetry {
+    Identity,
+    Rotate90,
+    Rotate180,
+    Rotate270,
+    MirrorVertical,
+    MirrorHorizontal,
+    MirrorMainDiagonal,
+    MirrorAntiDiagonal,
+};
+
+constexpr std::array<Symmetry, 8> kSymmetries = {
+    Symmetry::Identity,
+    Symmetry::Rotate90,
+    Symmetry::Rotate180,
+    Symmetry::Rotate270,
+    Symmetry::MirrorVertical,
+    Symmetry::MirrorHorizontal,
+    Symmetry::MirrorMainDiagonal,
+    Symmetry::MirrorAntiDiagonal,
+};
+
+Move transformMove(Move move, int boardSize, Symmetry symmetry) {
+    const int last = boardSize - 1;
+    switch (symmetry) {
+        case Symmetry::Identity:
+            return move;
+        case Symmetry::Rotate90:
+            return {move.col, last - move.row};
+        case Symmetry::Rotate180:
+            return {last - move.row, last - move.col};
+        case Symmetry::Rotate270:
+            return {last - move.col, move.row};
+        case Symmetry::MirrorVertical:
+            return {move.row, last - move.col};
+        case Symmetry::MirrorHorizontal:
+            return {last - move.row, move.col};
+        case Symmetry::MirrorMainDiagonal:
+            return {move.col, move.row};
+        case Symmetry::MirrorAntiDiagonal:
+            return {last - move.col, last - move.row};
+    }
+    return move;
+}
+
+Action transformAction(const Action& action, int boardSize, Symmetry symmetry) {
+    if (action.kind != Action::Kind::Move) {
+        return action;
+    }
+    return Action::makeMove(transformMove(action.move, boardSize, symmetry));
+}
+
+bool matchesPrefixWithSymmetry(
+    const std::vector<Action>& actions,
+    const OpeningBookEntry& entry,
+    int boardSize,
+    Symmetry symmetry) {
+    for (std::size_t index = 0; index < actions.size(); ++index) {
+        if (!matchesAction(actions[index], transformAction(entry.prefix[index], boardSize, symmetry))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const std::vector<OpeningBookEntry>& entries() {
     static const std::vector<OpeningBookEntry> kEntries = {
         {Ruleset::Freestyle15, "center_anchor", {}, {7, 7}},
         {Ruleset::Freestyle15, "east_reply", {moveAction({7, 7})}, {7, 8}},
         {Ruleset::Freestyle15, "cross_attach", {moveAction({7, 7}), moveAction({7, 8})}, {8, 7}},
+        {Ruleset::Freestyle15, "diagonal_clamp", {moveAction({7, 7}), moveAction({6, 7})}, {6, 8}},
+        {Ruleset::Freestyle15, "diagonal_split", {moveAction({7, 7}), moveAction({6, 8})}, {8, 8}},
         {Ruleset::Freestyle15, "double_diagonal", {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7})}, {6, 8}},
 
         {Ruleset::Standard15, "center_anchor", {}, {7, 7}},
         {Ruleset::Standard15, "east_reply", {moveAction({7, 7})}, {7, 8}},
         {Ruleset::Standard15, "cross_attach", {moveAction({7, 7}), moveAction({7, 8})}, {8, 7}},
+        {Ruleset::Standard15, "diagonal_clamp", {moveAction({7, 7}), moveAction({6, 7})}, {6, 8}},
+        {Ruleset::Standard15, "diagonal_split", {moveAction({7, 7}), moveAction({6, 8})}, {8, 8}},
         {Ruleset::Standard15, "double_diagonal", {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7})}, {6, 8}},
 
         {Ruleset::Swap16, "swap_triangle_1", {}, {7, 7}},
@@ -50,6 +119,11 @@ const std::vector<OpeningBookEntry>& entries() {
             {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7}), swapAction(SwapChoice::KeepColors)}, {8, 8}},
         {Ruleset::Swap16, "post_swap_balance",
             {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7}), swapAction(SwapChoice::SwapColors)}, {8, 8}},
+
+        // Imported Crazy-Sensei openings. Placed after the curated entries
+        // so that hand-picked first moves (e.g. center_anchor) still win
+        // when prefixes overlap. See scripts/convert_opening_book.py.
+#include "OpeningBookData.inc"
     };
     return kEntries;
 }
@@ -67,19 +141,18 @@ std::optional<OpeningBookHit> lookupOpeningBookMove(const GameState& state) {
             continue;
         }
 
-        bool matches = true;
-        for (std::size_t index = 0; index < actions.size(); ++index) {
-            if (!matchesAction(actions[index], entry.prefix[index])) {
-                matches = false;
-                break;
+        for (const Symmetry symmetry : kSymmetries) {
+            if (!matchesPrefixWithSymmetry(actions, entry, state.boardSize(), symmetry)) {
+                continue;
             }
-        }
 
-        if (!matches || !state.isLegalMove(entry.move)) {
-            continue;
-        }
+            const Move bookMove = transformMove(entry.move, state.boardSize(), symmetry);
+            if (!state.isLegalMove(bookMove)) {
+                continue;
+            }
 
-        return OpeningBookHit {entry.move, entry.lineName};
+            return OpeningBookHit {bookMove, entry.lineName};
+        }
     }
 
     return std::nullopt;

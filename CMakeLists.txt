@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.20)
 
 project(gomoku_minimax LANGUAGES CXX)
 
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release RelWithDebInfo MinSizeRel)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -47,6 +52,9 @@ target_link_libraries(gomoku_book PRIVATE gomoku_engine)
 add_executable(gomoku_proof_bench src/tools/proof_benchmark.cpp)
 target_link_libraries(gomoku_proof_bench PRIVATE gomoku_engine)
 
+add_executable(gomoku_gomocup src/tools/gomoku_gomocup.cpp)
+target_link_libraries(gomoku_gomocup PRIVATE gomoku_engine)
+
 option(GOMOKU_BUILD_SFML_UI "Build the SFML graphical UI" ON)
 
 if(GOMOKU_BUILD_SFML_UI)
@@ -73,4 +81,12 @@ if(BUILD_TESTING)
     add_executable(gomoku_tactical_regressions tests/tactical_regressions.cpp)
     target_link_libraries(gomoku_tactical_regressions PRIVATE gomoku_engine)
     add_test(NAME gomoku_tactical_regressions COMMAND gomoku_tactical_regressions)
+
+    add_executable(gomoku_search_enhancements tests/search_enhancements.cpp)
+    target_link_libraries(gomoku_search_enhancements PRIVATE gomoku_engine)
+    add_test(NAME gomoku_search_enhancements COMMAND gomoku_search_enhancements)
+
+    add_executable(gomoku_seeded_regressions tests/seeded_regressions.cpp)
+    target_link_libraries(gomoku_seeded_regressions PRIVATE gomoku_engine)
+    add_test(NAME gomoku_seeded_regressions COMMAND gomoku_seeded_regressions)
 endif()

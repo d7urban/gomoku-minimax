@@ -58,6 +58,10 @@ bool Match::isAiTurn() const {
     return controllerToAct() != ControllerKind::Human;
 }
 
+void Match::setAiMoveTimeMs(int aiMoveTimeMs) {
+    config_.aiMoveTimeMs = std::max(1, aiMoveTimeMs);
+}
+
 bool Match::applyMove(Move move) {
     return state_.applyMove(move);
 }

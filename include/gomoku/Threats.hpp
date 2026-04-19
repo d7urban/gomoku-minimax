@@ -17,6 +17,7 @@ struct CandidateMove {
 std::string_view toString(ThreatType type);
 int threatSeverity(ThreatType type);
 int threatWeight(ThreatType type);
+int threatSeverityEnhanced(const MoveThreatInfo& info);
 MoveThreatInfo computeMoveThreatInfo(const GameState& state, Move move, Player player);
 
 class StaticEvaluator {

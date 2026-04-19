@@ -62,20 +62,6 @@ int neighborhoodPressure(const GameState& state, Move move, Player player) {
     return score;
 }
 
-bool createsImmediateWin(const GameState& state, Move move, Player player) {
-    if (!state.isLegalMove(move) || state.sideToMove() != player) {
-        return false;
-    }
-
-    GameState trial = state;
-    if (!trial.applyMove(move)) {
-        return false;
-    }
-
-    return (player == Player::Black && trial.result() == GameResult::BlackWin)
-        || (player == Player::White && trial.result() == GameResult::WhiteWin);
-}
-
 bool isNearExistingStone(const GameState& state, Move move) {
     for (int dRow = -2; dRow <= 2; ++dRow) {
         for (int dCol = -2; dCol <= 2; ++dCol) {
@@ -123,6 +109,26 @@ std::string_view toString(ThreatType type) {
 
 int threatSeverity(ThreatType type) {
     return static_cast<int>(type);
+}
+
+// Ordering key only: rewards combined threats so double-threats sort above the
+// severity of their primary component. Do NOT use this scale for evaluation —
+// the magnitudes are step-functions chosen to break ordering ties, not to
+// reflect winning probability.
+int threatSeverityEnhanced(const MoveThreatInfo& info) {
+    if (info.best == ThreatType::OpenFour) {
+        return 1000 + threatSeverity(info.second);
+    }
+    if (info.best == ThreatType::SimpleFour && info.second == ThreatType::OpenThree) {
+        return 800;
+    }
+    if (info.best == ThreatType::OpenThree && info.second == ThreatType::OpenThree) {
+        return 600;
+    }
+    if (info.best == ThreatType::OpenThree && info.second == ThreatType::BrokenThree) {
+        return 400;
+    }
+    return threatSeverity(info.best) + (threatSeverity(info.second) / 4);
 }
 
 int threatWeight(ThreatType type) {
@@ -279,9 +285,17 @@ std::vector<CandidateMove> StaticEvaluator::generateCandidateMoves(const GameSta
         candidate.threatInfo = analyzeMove(state, move, player);
         candidate.score = candidate.threatInfo.totalScore + centralityScore(state, move) + neighborhoodPressure(state, move, player);
         const MoveThreatInfo defensiveInfo = analyzeMove(state, move, otherPlayer(player));
-        candidate.score += threatWeight(defensiveInfo.best) * 2;
+        candidate.score += defensiveInfo.totalScore;
 
-        if (createsImmediateWin(state, move, player)) {
+        if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+            candidate.score += 500'000;
+        } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
+            candidate.score += 50'000;
+        } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::BrokenThree)) {
+            candidate.score += 5'000;
+        }
+
+        if (candidate.threatInfo.best == ThreatType::Five) {
             candidate.score += 10000000;
         }
 

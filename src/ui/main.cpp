@@ -780,7 +780,7 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
     addLine("3 swap16", match.config().ruleset == Ruleset::Swap16);
     addLine("O opener: " + std::string(gomoku::toString(match.config().openerController)));
     addLine("P chooser: " + std::string(gomoku::toString(match.config().chooserController)));
-    addLine("[ / ] time: " + formatMoveTime(match.config().aiMoveTimeMs));
+    addLine("time (-/+): " + formatMoveTime(match.config().aiMoveTimeMs));
     addLine("Space autoplay", autoplayActive(match, controls));
     addLine("H heatmap", overlay.showHeatmap);
     addLine("T labels", overlay.showThreatLabels);
@@ -1190,12 +1190,12 @@ int main(int argc, char** argv) {
                     next.chooserController = cycleController(next.chooserController, 1);
                     replaceMatch(next);
                     setFeedback(controls, "Chooser: " + std::string(gomoku::toString(match.config().chooserController)));
-                } else if (event.key.code == sf::Keyboard::LBracket) {
+                } else if (event.key.code == sf::Keyboard::LBracket || event.key.code == sf::Keyboard::Comma || event.key.code == sf::Keyboard::Left) {
                     MatchConfig next = match.config();
                     next.aiMoveTimeMs = cycleMoveTime(next.aiMoveTimeMs, -1);
                     replaceMatch(next);
                     setFeedback(controls, "AI time: " + formatMoveTime(match.config().aiMoveTimeMs));
-                } else if (event.key.code == sf::Keyboard::RBracket) {
+                } else if (event.key.code == sf::Keyboard::RBracket || event.key.code == sf::Keyboard::Period || event.key.code == sf::Keyboard::Right) {
                     MatchConfig next = match.config();
                     next.aiMoveTimeMs = cycleMoveTime(next.aiMoveTimeMs, 1);
                     replaceMatch(next);
