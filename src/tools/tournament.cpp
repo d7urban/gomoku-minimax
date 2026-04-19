@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <poll.h>
@@ -61,6 +62,9 @@ struct EngineProcess {
     std::string readBuffer;
     std::string name;
     bool alive {false};
+    // Per-game clock state. Meaningful only when the enclosing GameConfig
+    // enables global-clock mode; otherwise left at 0 / ignored.
+    int64_t remainingMs {0};
 };
 
 std::vector<std::string> splitArgs(const std::string& raw) {
@@ -335,25 +339,51 @@ struct GameRecord {
     std::string note;
 };
 
-GameRecord runGame(EngineProcess& black, EngineProcess& white, int turnMs, int readMs, bool verbose) {
+struct GameConfig {
+    int turnMs {0};         // 0 disables per-turn cap
+    int matchMs {0};        // 0 disables global-clock mode
+    int readSlackMs {5000}; // harness grace beyond engine's remaining budget
+    bool verbose {false};
+};
+
+// Read one move reply while tracking wall-clock elapsed. outElapsedMs is
+// always set, even on timeout — the caller needs it to decrement clocks
+// and to distinguish clock-exhaustion from other failures.
+MoveReply readMoveReplyTimed(EngineProcess& engine, int timeoutMs, int64_t& outElapsedMs) {
+    const auto start = std::chrono::steady_clock::now();
+    MoveReply reply = readMoveReply(engine, timeoutMs);
+    const auto end = std::chrono::steady_clock::now();
+    outElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    return reply;
+}
+
+GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig& cfg) {
     using namespace gomoku;
     GameState state(rulesFor(Ruleset::Freestyle15));
 
-    const std::string startCmd = "START " + std::to_string(kBoardSize);
-    const std::string infoCmd = "INFO timeout_turn " + std::to_string(turnMs);
+    const bool globalClock = cfg.matchMs > 0;
+    black.remainingMs = globalClock ? cfg.matchMs : 0;
+    white.remainingMs = globalClock ? cfg.matchMs : 0;
 
-    // START & wait for OK from both.
+    const std::string startCmd = "START " + std::to_string(kBoardSize);
+
+    // Boot sequence: START, wait OK, then announce the time control. INFO
+    // keys we don't care about are silently dropped by gomocup-compliant
+    // engines, so it is safe to always advertise both caps.
+    const int bootReadMs = cfg.readSlackMs + (globalClock ? 2000 : (cfg.turnMs > 0 ? cfg.turnMs : 2000));
     auto boot = [&](EngineProcess& e) -> bool {
         if (!sendLine(e, startCmd)) return false;
-        if (!waitForOk(e, readMs)) return false;
-        sendLine(e, infoCmd);  // no reply expected
+        if (!waitForOk(e, bootReadMs)) return false;
+        if (cfg.turnMs > 0) {
+            sendLine(e, "INFO timeout_turn " + std::to_string(cfg.turnMs));
+        }
+        if (globalClock) {
+            sendLine(e, "INFO timeout_match " + std::to_string(cfg.matchMs));
+        }
         return true;
     };
     if (!boot(black)) return {GameOutcome::BlackForfeit, 0, "black failed START"};
     if (!boot(white)) return {GameOutcome::WhiteForfeit, 0, "white failed START"};
-
-    // Black opens.
-    if (!sendLine(black, "BEGIN")) return {GameOutcome::BlackForfeit, 0, "black BEGIN write failed"};
 
     EngineProcess* toMove = &black;
     EngineProcess* other = &white;
@@ -368,10 +398,48 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, int turnMs, int r
         };
     };
 
+    // Send the "your move" prompt (BEGIN for ply 1, TURN x,y after).
+    auto promptMove = [&](EngineProcess& engine, const std::optional<Move>& lastMove) -> bool {
+        if (globalClock) {
+            if (!sendLine(engine, "INFO time_left " + std::to_string(engine.remainingMs))) return false;
+        }
+        if (!lastMove) {
+            return sendLine(engine, "BEGIN");
+        }
+        return sendLine(engine,
+            "TURN " + std::to_string(lastMove->col) + "," + std::to_string(lastMove->row));
+    };
+
+    std::optional<Move> lastMove;  // what the previous side played, relayed to the other
+    if (!promptMove(*toMove, lastMove)) {
+        return forfeitOf(movingPlayer, toMove->name + " prompt write failed");
+    }
+
     while (true) {
-        const MoveReply reply = readMoveReply(*toMove, readMs);
+        // Per-reply read budget: in global-clock mode, wait up to the
+        // engine's remaining game time plus slack; otherwise fall back to
+        // the per-turn cap (or a fixed default) plus slack.
+        const int waitMs = globalClock
+            ? static_cast<int>(std::min<int64_t>(
+                  std::numeric_limits<int>::max() / 2,
+                  toMove->remainingMs + cfg.readSlackMs))
+            : ((cfg.turnMs > 0 ? cfg.turnMs : 2000) + cfg.readSlackMs);
+
+        int64_t elapsedMs = 0;
+        const MoveReply reply = readMoveReplyTimed(*toMove, waitMs, elapsedMs);
+
+        if (globalClock) {
+            toMove->remainingMs -= elapsedMs;
+            if (toMove->remainingMs <= 0 && reply.outcome != MoveOutcome::Ok) {
+                // Ran out of clock before producing a legal reply.
+                return forfeitOf(movingPlayer,
+                    toMove->name + " flagged on time (elapsed=" + std::to_string(elapsedMs) + "ms)");
+            }
+        }
+
         if (reply.outcome == MoveOutcome::Timeout) {
-            return forfeitOf(movingPlayer, "timeout waiting for " + toMove->name);
+            return forfeitOf(movingPlayer,
+                "timeout waiting for " + toMove->name + " (elapsed=" + std::to_string(elapsedMs) + "ms)");
         }
         if (reply.outcome == MoveOutcome::EngineError) {
             return forfeitOf(movingPlayer, toMove->name + " error: " + reply.message);
@@ -389,11 +457,14 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, int turnMs, int r
                 toMove->name + " move rejected " + std::to_string(move.col) + "," + std::to_string(move.row));
         }
         ++plies;
-        if (verbose) {
+        if (cfg.verbose) {
             std::cerr << "  ply " << plies << " "
                       << (movingPlayer == Player::Black ? "B" : "W")
                       << "=" << toMove->name
-                      << " " << move.col << "," << move.row << "\n";
+                      << " " << move.col << "," << move.row
+                      << " (t=" << elapsedMs << "ms";
+            if (globalClock) std::cerr << " left=" << toMove->remainingMs << "ms";
+            std::cerr << ")\n";
         }
 
         if (state.isGameOver()) {
@@ -405,13 +476,13 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, int turnMs, int r
             }
         }
 
-        // Relay the move to the other side as TURN x,y.
-        const std::string turnLine = "TURN " + std::to_string(move.col) + "," + std::to_string(move.row);
-        if (!sendLine(*other, turnLine)) {
-            return forfeitOf(otherPlayer(movingPlayer), other->name + " write failed");
-        }
+        lastMove = move;
         std::swap(toMove, other);
         movingPlayer = otherPlayer(movingPlayer);
+
+        if (!promptMove(*toMove, lastMove)) {
+            return forfeitOf(movingPlayer, toMove->name + " prompt write failed");
+        }
     }
 }
 
@@ -459,8 +530,14 @@ void printUsage() {
     std::cerr <<
         "Usage: gomoku_tournament [options] <engineA> <engineB>\n"
         "  -n, --games N          Games to play (default 2).\n"
-        "  -t, --turn-ms MS       Per-move soft time sent via INFO (default 1000).\n"
-        "  -r, --read-ms MS       Hard wait cap per reply (default turn-ms + 5000).\n"
+        "  -t, --turn-ms MS       Per-move cap sent as INFO timeout_turn (default 1000,\n"
+        "                         set 0 to omit). Also caps per-reply wait when no\n"
+        "                         match clock is configured.\n"
+        "  -m, --match-ms MS      Per-game total clock per engine. Enables global-clock\n"
+        "                         mode: harness tracks remaining time and sends\n"
+        "                         INFO time_left before each BEGIN/TURN. Default 0 (off).\n"
+        "  -r, --read-slack-ms MS Grace period beyond the engine's remaining budget the\n"
+        "                         harness will still wait for a reply (default 5000).\n"
         "  -a, --name-a NAME      Display name for engineA.\n"
         "  -b, --name-b NAME      Display name for engineB.\n"
         "      --args-a \"ARGS\"    Extra CLI args for engineA (space-separated).\n"
@@ -475,7 +552,8 @@ int main(int argc, char** argv) {
     EngineSpec b;
     int games = 2;
     int turnMs = 1000;
-    int readMs = -1;
+    int matchMs = 0;
+    int readSlackMs = 5000;
     bool verbose = false;
     std::string rawArgsA;
     std::string rawArgsB;
@@ -493,9 +571,11 @@ int main(int argc, char** argv) {
         if (arg == "-n" || arg == "--games") {
             games = std::max(1, std::atoi(need("--games")));
         } else if (arg == "-t" || arg == "--turn-ms") {
-            turnMs = std::max(1, std::atoi(need("--turn-ms")));
-        } else if (arg == "-r" || arg == "--read-ms") {
-            readMs = std::max(1, std::atoi(need("--read-ms")));
+            turnMs = std::max(0, std::atoi(need("--turn-ms")));
+        } else if (arg == "-m" || arg == "--match-ms") {
+            matchMs = std::max(0, std::atoi(need("--match-ms")));
+        } else if (arg == "-r" || arg == "--read-slack-ms") {
+            readSlackMs = std::max(0, std::atoi(need("--read-slack-ms")));
         } else if (arg == "-a" || arg == "--name-a") {
             a.name = need("--name-a");
         } else if (arg == "-b" || arg == "--name-b") {
@@ -528,11 +608,18 @@ int main(int argc, char** argv) {
     if (b.name.empty()) b.name = b.path;
     a.extraArgs = splitArgs(rawArgsA);
     b.extraArgs = splitArgs(rawArgsB);
-    if (readMs < 0) readMs = turnMs + 5000;
+
+    GameConfig gameCfg;
+    gameCfg.turnMs = turnMs;
+    gameCfg.matchMs = matchMs;
+    gameCfg.readSlackMs = readSlackMs;
+    gameCfg.verbose = verbose;
 
     std::cerr << "tournament: " << a.name << " vs " << b.name
-              << "  games=" << games << "  turn=" << turnMs
-              << "ms  read=" << readMs << "ms\n";
+              << "  games=" << games
+              << "  turn=" << turnMs << "ms"
+              << "  match=" << matchMs << "ms"
+              << "  slack=" << readSlackMs << "ms\n";
 
     Tally tallyA;
     Tally tallyB;
@@ -556,7 +643,7 @@ int main(int argc, char** argv) {
 
         std::cerr << "game " << (g + 1) << "/" << games << ": B=" << blackProc.name
                   << " W=" << whiteProc.name << "\n";
-        const GameRecord record = runGame(blackProc, whiteProc, turnMs, readMs, verbose);
+        const GameRecord record = runGame(blackProc, whiteProc, gameCfg);
         std::cerr << "  -> " << outcomeLabel(record.outcome) << " in "
                   << record.plies << " plies";
         if (!record.note.empty()) std::cerr << "  (" << record.note << ")";
