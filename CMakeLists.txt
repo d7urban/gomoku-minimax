@@ -27,6 +27,7 @@ add_library(gomoku_engine
     src/engine/TacticalAI.cpp
     src/engine/ThreatSearch.cpp
     src/engine/Threats.cpp
+    src/engine/TimeGovernor.cpp
     src/engine/Types.cpp
 )
 
@@ -92,4 +93,8 @@ if(BUILD_TESTING)
     add_executable(gomoku_seeded_regressions tests/seeded_regressions.cpp)
     target_link_libraries(gomoku_seeded_regressions PRIVATE gomoku_engine)
     add_test(NAME gomoku_seeded_regressions COMMAND gomoku_seeded_regressions)
+
+    add_executable(gomoku_time_governor tests/time_governor.cpp)
+    target_link_libraries(gomoku_time_governor PRIVATE gomoku_engine)
+    add_test(NAME gomoku_time_governor COMMAND gomoku_time_governor)
 endif()

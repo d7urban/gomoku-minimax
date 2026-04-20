@@ -12,6 +12,7 @@
 
 #include "gomoku/OpeningBook.hpp"
 #include "gomoku/Threats.hpp"
+#include "gomoku/TimeGovernor.hpp"
 
 namespace gomoku {
 
@@ -936,7 +937,21 @@ SearchEngine::SearchEngine(SearchConfig config)
 }
 
 SearchResult SearchEngine::search(const GameState& state) {
-    SearchRunner runner(config_);
+    SearchConfig effective = config_;
+
+    // Global time governor (v1 step 3 — baseline only). Engaged only
+    // when the caller supplied an authoritative game clock; otherwise
+    // we preserve the caller's per-turn scheduling untouched.
+    if (effective.clock.hasGameClock()) {
+        TimeGovernor governor;
+        TimeGovernorConfig govCfg;  // defaults for now; tunable later
+        if (const auto budget = governor.computeBaselineBudget(effective.clock, govCfg)) {
+            effective.timeLimitMs = static_cast<int>(budget->hardCapMs);
+            effective.softTimeLimitMs = static_cast<int>(budget->targetMs);
+        }
+    }
+
+    SearchRunner runner(effective);
     return runner.run(state);
 }
 
