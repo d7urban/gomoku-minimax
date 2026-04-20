@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -160,7 +161,7 @@ void setFeedback(UiControlState& controls, std::string text) {
     controls.feedbackClock.restart();
 }
 
-std::optional<sf::Font> loadUiFont() {
+std::unique_ptr<sf::Font> loadUiFont() {
     static const std::array<const char*, 4> kCandidates = {
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
@@ -172,13 +173,13 @@ std::optional<sf::Font> loadUiFont() {
         if (!std::filesystem::exists(path)) {
             continue;
         }
-        sf::Font font;
-        if (font.loadFromFile(path)) {
+        auto font = std::make_unique<sf::Font>();
+        if (font->loadFromFile(path)) {
             return font;
         }
     }
 
-    return std::nullopt;
+    return nullptr;
 }
 
 sf::Vector2f boardPoint(const Match& match, Move move, float left, float top, float cell) {
@@ -1101,7 +1102,7 @@ int main(int argc, char** argv) {
     sf::RenderWindow window(sf::VideoMode(1380, 900), "Gomoku - Checkpoint 5");
     window.setFramerateLimit(60);
 
-    const std::optional<sf::Font> font = loadUiFont();
+    std::unique_ptr<sf::Font> font = loadUiFont();
     sf::Clock aiClock;
 
     const auto replaceMatch = [&](const MatchConfig& nextConfig) {
@@ -1302,16 +1303,16 @@ int main(int argc, char** argv) {
         if (overlay.showTopCandidates) {
             drawTopCandidateMarkers(window, match, analysis, layout.boardLeft, layout.boardTop, layout.cell);
         }
-        if (overlay.showThreatLabels && font.has_value()) {
+        if (overlay.showThreatLabels && font) {
             drawThreatLabels(window, match, analysis, *font, layout.boardLeft, layout.boardTop, layout.cell);
         }
-        if (font.has_value()) {
+        if (font) {
             drawThreatSequenceOverlay(window, match, threatAnalysis, *font, layout.boardLeft, layout.boardTop, layout.cell);
             drawProofVariationOverlay(window, match, proofAnalysis, *font, layout.boardLeft, layout.boardTop, layout.cell);
         }
         drawProofMarkers(window, match, proofAnalysis, layout.boardLeft, layout.boardTop, layout.cell);
 
-        if (font.has_value()) {
+        if (font) {
             const sf::Vector2f statusPanelPos {layout.statusPanel.left, layout.statusPanel.top};
             const sf::Vector2f candidatePanelPos {layout.candidatePanel.left, layout.candidatePanel.top};
             const sf::Vector2f statusPanelSize {layout.statusPanel.width, layout.statusPanel.height};
