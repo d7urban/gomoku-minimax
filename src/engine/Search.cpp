@@ -346,6 +346,18 @@ public:
             previousScore = iteration.score;
             lastIterationCostMs = std::max(0, elapsedMs() - iterationStartMs);
 
+            // Update best-move stability state *before* checking softLimit
+            // so the effective soft cap reflects this iteration's result.
+            if (lastIterationBestMove_.has_value() && *lastIterationBestMove_ == *iteration.bestMove) {
+                stableIterationCount_++;
+                bestMoveChangedLastIter_ = false;
+            } else {
+                // First iteration has no baseline — treat as neither stable nor changed.
+                bestMoveChangedLastIter_ = lastIterationBestMove_.has_value();
+                stableIterationCount_ = 0;
+            }
+            lastIterationBestMove_ = iteration.bestMove;
+
             if (softLimitReached()) {
                 break;
             }
@@ -364,6 +376,12 @@ private:
     int vcfHits_ {0};
     int rootIterationDepth_ {0};
     bool completedDepth_ {true};
+    // Best-move instability tracking for dynamic soft-limit modulation.
+    // See effectiveSoftLimitMs — kept here rather than in the ID loop so
+    // softLimitReached() can consult them.
+    std::optional<Move> lastIterationBestMove_ {};
+    int  stableIterationCount_ {0};
+    bool bestMoveChangedLastIter_ {false};
     std::unordered_map<std::uint64_t, TTEntry> tt_;
     std::vector<std::array<std::optional<Move>, 2>> killerMoves_;
     std::vector<int> historyScores_;
@@ -410,8 +428,33 @@ private:
         return false;
     }
 
+    // Effective soft limit used for early-stop decisions. Always derived
+    // from the baseline softTimeLimitMs — never from a previously
+    // modulated value — so scale factors do not compound across
+    // iterations. Hard cap always dominates; falls back to the baseline
+    // when the governor is not engaged or has disabled the feature
+    // (stableIterationsNeeded < 0).
+    int effectiveSoftLimitMs() const {
+        const int base = softTimeLimitMs();
+        if (base <= 0 || !budget_ || budget_->stableIterationsNeeded < 0) {
+            return base;
+        }
+        double scale = 1.0;
+        if (bestMoveChangedLastIter_) {
+            scale = budget_->bestMoveUnstableScale;
+        } else if (stableIterationCount_ >= budget_->stableIterationsNeeded) {
+            scale = budget_->bestMoveStableScale;
+        }
+        int adjusted = static_cast<int>(std::llround(static_cast<double>(base) * scale));
+        const int hard = hardTimeLimitMs();
+        if (hard > 0 && adjusted > hard) adjusted = hard;
+        if (adjusted < 1) adjusted = 1;
+        return adjusted;
+    }
+
     bool softLimitReached() const {
-        return softTimeLimitMs() > 0 && elapsedMs() >= softTimeLimitMs();
+        const int limit = effectiveSoftLimitMs();
+        return limit > 0 && elapsedMs() >= limit;
     }
 
     bool shouldRunRootThreatSearch(const GameState& state) const {

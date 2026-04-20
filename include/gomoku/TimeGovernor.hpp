@@ -23,6 +23,15 @@ struct MoveBudget {
     // starting the next iteration when elapsed + lastCost * this + slack
     // would exceed hardCapMs. 0.0 disables the check.
     double nextIterBranchingEstimate {0.0};
+
+    // Dynamic soft-limit modulation based on root best-move instability
+    // across ID iterations. These are *always* applied to the original
+    // targetMs, never to a previously modulated value — avoiding any
+    // compounding drift. The hard cap is never scaled. stableIterationsNeeded
+    // < 0 disables the check entirely (baseline behaviour).
+    double bestMoveUnstableScale {1.0};
+    double bestMoveStableScale   {1.0};
+    int    stableIterationsNeeded {-1};
 };
 
 // Static knobs for the baseline governor (v1 step 3). Only the fields
@@ -81,6 +90,15 @@ struct TimeGovernorConfig {
     // that mixed positions do not stack bonuses multiplicatively.
     double defenseThreatBonusFrac {0.30};
     double attackThreatBonusFrac  {0.15};
+
+    // Dynamic soft-limit modulation based on root best-move instability
+    // across ID iterations. Always applied to the original targetMs,
+    // never to a previously modulated value — avoids compounding drift.
+    // Hard cap is never scaled. 2 stable iterations needed before the
+    // search is willing to stop early.
+    double bestMoveUnstableScale {1.4};
+    double bestMoveStableScale   {0.80};
+    int    stableIterationsNeeded {2};
 };
 
 class TimeGovernor {

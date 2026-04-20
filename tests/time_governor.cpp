@@ -102,6 +102,23 @@ void testBudgetReportsBranchingEstimate() {
     assert(budget->finalizationSlackMs == cfg.finalizationSlackMs);
 }
 
+void testBudgetReportsInstabilityKnobs() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    cfg.bestMoveUnstableScale = 1.5;
+    cfg.bestMoveStableScale   = 0.6;
+    cfg.stableIterationsNeeded = 3;
+    ClockState clock;
+    clock.timeLeftMs = 10'000;
+    clock.moveNumber = 5;
+
+    const auto budget = governor.computeBaselineBudget(clock, cfg);
+    assert(budget.has_value());
+    assert(budget->bestMoveUnstableScale  == 1.5);
+    assert(budget->bestMoveStableScale    == 0.6);
+    assert(budget->stableIterationsNeeded == 3);
+}
+
 void testThreatBonusScalesBudgetUp() {
     TimeGovernor governor;
     TimeGovernorConfig cfg;
@@ -204,6 +221,7 @@ int main() {
     testTurnCapDominatesGovernor();
     testEmergencyFlagSetWhenTimeIsLow();
     testBudgetReportsBranchingEstimate();
+    testBudgetReportsInstabilityKnobs();
     testThreatBonusScalesBudgetUp();
     testDefenseBonusDominatesAttackBonus();
     testThreatBonusDoesNotStack();

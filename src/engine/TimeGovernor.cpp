@@ -115,6 +115,9 @@ std::optional<MoveBudget> TimeGovernor::computeBaselineBudget(
     budget.finalizationSlackMs = cfg.finalizationSlackMs;
     budget.emergency = (timeLeft <= cfg.emergencyThresholdMs);
     budget.nextIterBranchingEstimate = cfg.nextIterBranchingEstimate;
+    budget.bestMoveUnstableScale  = cfg.bestMoveUnstableScale;
+    budget.bestMoveStableScale    = cfg.bestMoveStableScale;
+    budget.stableIterationsNeeded = cfg.stableIterationsNeeded;
     return budget;
 }
 
