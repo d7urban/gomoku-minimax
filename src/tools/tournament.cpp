@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -48,6 +49,7 @@
 namespace {
 
 constexpr int kBoardSize = 15;
+const std::vector<gomoku::Move> kEmptyOpening {};
 
 struct EngineSpec {
     std::string path;
@@ -66,6 +68,55 @@ struct EngineProcess {
     // enables global-clock mode; otherwise left at 0 / ignored.
     int64_t remainingMs {0};
 };
+
+// Parse one opening line like "7,7 8,8 6,6" into a move list. Returns
+// nullopt on malformed input so the caller can report the source line.
+std::optional<std::vector<gomoku::Move>> parseOpeningLine(const std::string& line) {
+    std::vector<gomoku::Move> out;
+    std::stringstream ss(line);
+    std::string token;
+    while (ss >> token) {
+        const auto comma = token.find(',');
+        if (comma == std::string::npos) return std::nullopt;
+        try {
+            const int x = std::stoi(token.substr(0, comma));
+            const int y = std::stoi(token.substr(comma + 1));
+            if (x < 0 || x >= kBoardSize || y < 0 || y >= kBoardSize) return std::nullopt;
+            out.push_back(gomoku::Move{y, x});  // wire (x,y) -> (row=y, col=x)
+        } catch (const std::exception&) {
+            return std::nullopt;
+        }
+    }
+    return out;
+}
+
+// One opening per line, space-separated "x,y" tokens. Blank lines and
+// lines starting with '#' are ignored. Returns empty vector if the file
+// cannot be opened or has no valid openings.
+std::vector<std::vector<gomoku::Move>> loadOpenings(const std::string& path) {
+    std::vector<std::vector<gomoku::Move>> openings;
+    std::ifstream in(path);
+    if (!in) {
+        std::cerr << "tournament: could not open openings file: " << path << "\n";
+        return openings;
+    }
+    std::string line;
+    int lineNum = 0;
+    while (std::getline(in, line)) {
+        ++lineNum;
+        std::size_t first = 0;
+        while (first < line.size() && std::isspace(static_cast<unsigned char>(line[first]))) ++first;
+        if (first >= line.size()) continue;  // blank
+        if (line[first] == '#') continue;     // comment
+        auto parsed = parseOpeningLine(line.substr(first));
+        if (!parsed) {
+            std::cerr << "tournament: skipping malformed opening at " << path << ":" << lineNum << "\n";
+            continue;
+        }
+        openings.push_back(std::move(*parsed));
+    }
+    return openings;
+}
 
 std::vector<std::string> splitArgs(const std::string& raw) {
     std::vector<std::string> out;
@@ -357,13 +408,31 @@ MoveReply readMoveReplyTimed(EngineProcess& engine, int timeoutMs, int64_t& outE
     return reply;
 }
 
-GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig& cfg) {
+GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig& cfg,
+                   const std::vector<gomoku::Move>& opening) {
     using namespace gomoku;
     GameState state(rulesFor(Ruleset::Freestyle15));
 
     const bool globalClock = cfg.matchMs > 0;
     black.remainingMs = globalClock ? cfg.matchMs : 0;
     white.remainingMs = globalClock ? cfg.matchMs : 0;
+
+    // Seed the harness-local game state with the opening. Each engine
+    // receives a BOARD command at its first turn to catch up to this
+    // position; after that BOARD, subsequent turns use the normal TURN
+    // protocol message. Authoritative history is tracked here so we can
+    // build per-engine BOARD views (mine/opponent) when needed.
+    struct HistoryEntry { Move move; Player player; };
+    std::vector<HistoryEntry> history;
+    history.reserve(opening.size() + 64);
+    for (const Move& m : opening) {
+        const Player p = state.sideToMove();
+        if (!state.applyMove(m)) {
+            return {GameOutcome::Draw, 0,
+                    "opening move rejected: " + std::to_string(m.col) + "," + std::to_string(m.row)};
+        }
+        history.push_back({m, p});
+    }
 
     const std::string startCmd = "START " + std::to_string(kBoardSize);
 
@@ -385,10 +454,10 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig&
     if (!boot(black)) return {GameOutcome::BlackForfeit, 0, "black failed START"};
     if (!boot(white)) return {GameOutcome::WhiteForfeit, 0, "white failed START"};
 
-    EngineProcess* toMove = &black;
-    EngineProcess* other = &white;
-    Player movingPlayer = Player::Black;
-    int plies = 0;
+    Player movingPlayer = state.sideToMove();
+    EngineProcess* toMove = (movingPlayer == Player::Black) ? &black : &white;
+    EngineProcess* other  = (movingPlayer == Player::Black) ? &white : &black;
+    int plies = static_cast<int>(history.size());
 
     auto forfeitOf = [&](Player player, const std::string& msg) -> GameRecord {
         return {
@@ -398,20 +467,51 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig&
         };
     };
 
-    // Send the "your move" prompt (BEGIN for ply 1, TURN x,y after).
-    auto promptMove = [&](EngineProcess& engine, const std::optional<Move>& lastMove) -> bool {
+    // BOARD is used for each engine's *first* prompt. After that, the
+    // engine has its own authoritative copy of history and TURN works
+    // normally. With an empty opening and no prior history, sending a
+    // zero-stone BOARD is equivalent to BEGIN from the engine's side.
+    bool blackSeenBoard = false;
+    bool whiteSeenBoard = false;
+
+    auto sendBoardCatchup = [&](EngineProcess& engine, bool engineIsBlack) -> bool {
+        if (!sendLine(engine, "BOARD")) return false;
+        for (const auto& entry : history) {
+            // Field 1 = engine's own stone, 2 = opponent's. Engine does not
+            // need the stones in game order — cmdBoard replays alternating
+            // from sorted lists, which is legal for Freestyle15.
+            const bool mine = (engineIsBlack && entry.player == Player::Black)
+                           || (!engineIsBlack && entry.player == Player::White);
+            const int field = mine ? 1 : 2;
+            if (!sendLine(engine,
+                    std::to_string(entry.move.col) + "," + std::to_string(entry.move.row)
+                    + "," + std::to_string(field))) {
+                return false;
+            }
+        }
+        return sendLine(engine, "DONE");
+    };
+
+    auto promptMove = [&](EngineProcess& engine, bool engineIsBlack) -> bool {
         if (globalClock) {
             if (!sendLine(engine, "INFO time_left " + std::to_string(engine.remainingMs))) return false;
         }
-        if (!lastMove) {
+        bool& seen = engineIsBlack ? blackSeenBoard : whiteSeenBoard;
+        if (!seen) {
+            seen = true;
+            return sendBoardCatchup(engine, engineIsBlack);
+        }
+        // Relay the opponent's last move.
+        if (history.empty()) {
+            // Defensive: no history and already past first prompt. Shouldn't
+            // happen, but fall back to a fresh BEGIN so we don't hang.
             return sendLine(engine, "BEGIN");
         }
-        return sendLine(engine,
-            "TURN " + std::to_string(lastMove->col) + "," + std::to_string(lastMove->row));
+        const Move& last = history.back().move;
+        return sendLine(engine, "TURN " + std::to_string(last.col) + "," + std::to_string(last.row));
     };
 
-    std::optional<Move> lastMove;  // what the previous side played, relayed to the other
-    if (!promptMove(*toMove, lastMove)) {
+    if (!promptMove(*toMove, movingPlayer == Player::Black)) {
         return forfeitOf(movingPlayer, toMove->name + " prompt write failed");
     }
 
@@ -456,6 +556,7 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig&
             return forfeitOf(movingPlayer,
                 toMove->name + " move rejected " + std::to_string(move.col) + "," + std::to_string(move.row));
         }
+        history.push_back({move, movingPlayer});
         ++plies;
         if (cfg.verbose) {
             std::cerr << "  ply " << plies << " "
@@ -476,11 +577,10 @@ GameRecord runGame(EngineProcess& black, EngineProcess& white, const GameConfig&
             }
         }
 
-        lastMove = move;
         std::swap(toMove, other);
         movingPlayer = otherPlayer(movingPlayer);
 
-        if (!promptMove(*toMove, lastMove)) {
+        if (!promptMove(*toMove, movingPlayer == Player::Black)) {
             return forfeitOf(movingPlayer, toMove->name + " prompt write failed");
         }
     }
@@ -542,6 +642,9 @@ void printUsage() {
         "  -b, --name-b NAME      Display name for engineB.\n"
         "      --args-a \"ARGS\"    Extra CLI args for engineA (space-separated).\n"
         "      --args-b \"ARGS\"    Extra CLI args for engineB.\n"
+        "  -o, --openings FILE    One opening per line, space-separated \"x,y\" tokens.\n"
+        "                         Game N uses openings[N % count]; lines with '#' are\n"
+        "                         comments. Empty/missing file -> BEGIN flow preserved.\n"
         "  -v, --verbose          Log every relayed move.\n";
 }
 
@@ -557,6 +660,7 @@ int main(int argc, char** argv) {
     bool verbose = false;
     std::string rawArgsA;
     std::string rawArgsB;
+    std::string openingsPath;
 
     std::vector<std::string> positional;
     for (int i = 1; i < argc; ++i) {
@@ -584,6 +688,8 @@ int main(int argc, char** argv) {
             rawArgsA = need("--args-a");
         } else if (arg == "--args-b") {
             rawArgsB = need("--args-b");
+        } else if (arg == "-o" || arg == "--openings") {
+            openingsPath = need("--openings");
         } else if (arg == "-v" || arg == "--verbose") {
             verbose = true;
         } else if (arg == "-h" || arg == "--help") {
@@ -615,11 +721,21 @@ int main(int argc, char** argv) {
     gameCfg.readSlackMs = readSlackMs;
     gameCfg.verbose = verbose;
 
+    std::vector<std::vector<gomoku::Move>> openings;
+    if (!openingsPath.empty()) {
+        openings = loadOpenings(openingsPath);
+        if (openings.empty()) {
+            std::cerr << "tournament: openings file produced no usable lines; aborting\n";
+            return 2;
+        }
+    }
+
     std::cerr << "tournament: " << a.name << " vs " << b.name
               << "  games=" << games
               << "  turn=" << turnMs << "ms"
               << "  match=" << matchMs << "ms"
-              << "  slack=" << readSlackMs << "ms\n";
+              << "  slack=" << readSlackMs << "ms"
+              << "  openings=" << openings.size() << "\n";
 
     Tally tallyA;
     Tally tallyB;
@@ -641,9 +757,20 @@ int main(int argc, char** argv) {
             return 3;
         }
 
+        const std::vector<gomoku::Move>& opening =
+            openings.empty() ? kEmptyOpening : openings[static_cast<std::size_t>(g) % openings.size()];
         std::cerr << "game " << (g + 1) << "/" << games << ": B=" << blackProc.name
-                  << " W=" << whiteProc.name << "\n";
-        const GameRecord record = runGame(blackProc, whiteProc, gameCfg);
+                  << " W=" << whiteProc.name;
+        if (!opening.empty()) {
+            std::cerr << " opening[" << (g % static_cast<int>(openings.size())) << "]={";
+            for (std::size_t i = 0; i < opening.size(); ++i) {
+                if (i) std::cerr << " ";
+                std::cerr << opening[i].col << "," << opening[i].row;
+            }
+            std::cerr << "}";
+        }
+        std::cerr << "\n";
+        const GameRecord record = runGame(blackProc, whiteProc, gameCfg, opening);
         std::cerr << "  -> " << outcomeLabel(record.outcome) << " in "
                   << record.plies << " plies";
         if (!record.note.empty()) std::cerr << "  (" << record.note << ")";

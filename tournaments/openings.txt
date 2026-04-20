@@ -1,0 +1,24 @@
+# Seed openings for gomoku_tournament.
+# One opening per line; each token is "x,y" (col,row) zero-indexed.
+# Moves are applied in order, Black then White alternating.
+# Lines starting with '#' and blank lines are ignored.
+#
+# The 8 lines below are common short book continuations around h8 (7,7).
+# After the listed moves, the next side to move continues naturally.
+
+# Direct (h8, i8) -- east reply
+7,7 8,7
+# Cross attach (h8, i8, h9)
+7,7 8,7 7,8
+# Diagonal clamp (h8, h7)
+7,7 7,6
+# Diagonal split (h8, i7)
+7,7 8,6
+# Double diagonal (h8, i8, h9, i7)
+7,7 8,7 7,8 8,6
+# Knight-shape reply (h8, j7)
+7,7 9,6
+# West defence (h8, g8)
+7,7 6,7
+# Long diagonal (h8, k5)
+7,7 10,4
