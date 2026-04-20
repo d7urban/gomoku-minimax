@@ -216,8 +216,9 @@ struct VcfProbe {
 
 class SearchRunner {
 public:
-    explicit SearchRunner(SearchConfig config)
-        : config_(config) {
+    explicit SearchRunner(SearchConfig config, std::optional<MoveBudget> budget = std::nullopt)
+        : config_(config)
+        , budget_(std::move(budget)) {
     }
 
     SearchResult run(const GameState& state) {
@@ -278,14 +279,32 @@ public:
         result.summary.score = rootMoves.front().score;
 
         int previousScore = result.summary.score;
+        int lastIterationCostMs = 0;
         for (int depth = 1; depth <= config_.maxDepth; ++depth) {
             if (shouldStop() || (depth > 1 && softLimitReached())) {
                 break;
             }
 
+            // ID affordability: skip starting the next iteration if the
+            // predicted cost would push us past the hard cap with slack.
+            // Only engaged when the governor is active (budget_.has_value)
+            // and has given us a branching estimate.
+            if (depth > 1 && lastIterationCostMs > 0 && budget_
+                && budget_->nextIterBranchingEstimate > 0.0
+                && budget_->hardCapMs > 0)
+            {
+                const std::int64_t predictedNext = static_cast<std::int64_t>(
+                    static_cast<double>(lastIterationCostMs) * budget_->nextIterBranchingEstimate);
+                const std::int64_t boundary = budget_->hardCapMs - budget_->finalizationSlackMs;
+                if (static_cast<std::int64_t>(elapsedMs()) + predictedNext > boundary) {
+                    break;
+                }
+            }
+
             completedDepth_ = true;
             rootIterationDepth_ = depth;
             RootSearchResult iteration;
+            const int iterationStartMs = elapsedMs();
 
             if (config_.useAspirationWindows && depth > 1 && std::abs(previousScore) < kMateThreshold) {
                 int aspiration = kDefaultAspirationWindow;
@@ -325,6 +344,7 @@ public:
             result.summary.rootCandidateCount = iteration.rootCandidateCount;
             result.summary.principalVariation = extractPrincipalVariation(state, *iteration.bestMove, depth);
             previousScore = iteration.score;
+            lastIterationCostMs = std::max(0, elapsedMs() - iterationStartMs);
 
             if (softLimitReached()) {
                 break;
@@ -336,6 +356,7 @@ public:
 
 private:
     SearchConfig config_ {};
+    std::optional<MoveBudget> budget_ {};
     Clock::time_point startTime_ {};
     std::uint64_t nodes_ {0};
     std::uint64_t ttHits_ {0};
@@ -938,20 +959,22 @@ SearchEngine::SearchEngine(SearchConfig config)
 
 SearchResult SearchEngine::search(const GameState& state) {
     SearchConfig effective = config_;
+    std::optional<MoveBudget> budget;
 
-    // Global time governor (v1 step 3 — baseline only). Engaged only
-    // when the caller supplied an authoritative game clock; otherwise
-    // we preserve the caller's per-turn scheduling untouched.
+    // Global time governor. Engaged only when the caller supplied an
+    // authoritative game clock; otherwise we preserve the caller's
+    // per-turn scheduling untouched.
     if (effective.clock.hasGameClock()) {
         TimeGovernor governor;
         TimeGovernorConfig govCfg;  // defaults for now; tunable later
-        if (const auto budget = governor.computeBaselineBudget(effective.clock, govCfg)) {
+        budget = governor.computeBaselineBudget(effective.clock, govCfg);
+        if (budget) {
             effective.timeLimitMs = static_cast<int>(budget->hardCapMs);
             effective.softTimeLimitMs = static_cast<int>(budget->targetMs);
         }
     }
 
-    SearchRunner runner(effective);
+    SearchRunner runner(effective, std::move(budget));
     return runner.run(state);
 }
 

@@ -17,6 +17,11 @@ struct MoveBudget {
     std::int64_t emergencyThresholdMs {-1};  // informational: below this, search is in emergency territory
     std::int64_t finalizationSlackMs {0};    // reserved for move emission / stop-propagation
     bool emergency {false};                  // true if timeLeft is already below the emergency threshold
+    // Predicted cost multiplier for the *next* iterative-deepening
+    // iteration relative to the last one. The root ID loop skips
+    // starting the next iteration when elapsed + lastCost * this + slack
+    // would exceed hardCapMs. 0.0 disables the check.
+    double nextIterBranchingEstimate {0.0};
 };
 
 // Static knobs for the baseline governor (v1 step 3). Only the fields
@@ -61,6 +66,12 @@ struct TimeGovernorConfig {
 
     // Reserved for finalization/stop slack reported in MoveBudget.
     std::int64_t finalizationSlackMs {50};
+
+    // Predicted cost of the next ID iteration relative to the last. 3.0
+    // is a conservative default for alpha-beta + PVS with good move
+    // ordering; smaller values let the search start an extra iteration
+    // more often, larger values are safer against overshoot.
+    double nextIterBranchingEstimate {3.0};
 };
 
 class TimeGovernor {

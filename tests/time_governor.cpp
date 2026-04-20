@@ -84,6 +84,20 @@ void testEmergencyFlagSetWhenTimeIsLow() {
     assert(budget->hardCapMs >= budget->targetMs);
 }
 
+void testBudgetReportsBranchingEstimate() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    cfg.nextIterBranchingEstimate = 4.5;
+    ClockState clock;
+    clock.timeLeftMs = 10'000;
+    clock.moveNumber = 5;
+
+    const auto budget = governor.computeBaselineBudget(clock, cfg);
+    assert(budget.has_value());
+    assert(budget->nextIterBranchingEstimate == 4.5);
+    assert(budget->finalizationSlackMs == cfg.finalizationSlackMs);
+}
+
 void testTargetAndHardCapNeverBelowFloor() {
     TimeGovernor governor;
     TimeGovernorConfig cfg;
@@ -105,6 +119,7 @@ int main() {
     testBaselineSpendsMoreInMidgame();
     testTurnCapDominatesGovernor();
     testEmergencyFlagSetWhenTimeIsLow();
+    testBudgetReportsBranchingEstimate();
     testTargetAndHardCapNeverBelowFloor();
     return 0;
 }
