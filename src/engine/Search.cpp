@@ -967,7 +967,8 @@ SearchResult SearchEngine::search(const GameState& state) {
     if (effective.clock.hasGameClock()) {
         TimeGovernor governor;
         TimeGovernorConfig govCfg;  // defaults for now; tunable later
-        budget = governor.computeBaselineBudget(effective.clock, govCfg);
+        const ThreatAssessment assessment = assessRootThreats(state);
+        budget = governor.computeBaselineBudget(effective.clock, govCfg, assessment);
         if (budget) {
             effective.timeLimitMs = static_cast<int>(budget->hardCapMs);
             effective.softTimeLimitMs = static_cast<int>(budget->targetMs);

@@ -323,4 +323,55 @@ std::vector<CandidateMove> StaticEvaluator::generateCandidateMoves(const GameSta
     return moves;
 }
 
+namespace {
+
+// Best threat the given player could create with one move from the
+// current position. Scans empty squares near existing stones and
+// returns the highest severity seen. Runs once per search, so a full
+// neighbourhood scan is acceptable.
+ThreatType bestThreatFor(const GameState& state, Player player) {
+    ThreatType best = ThreatType::None;
+    for (const Move& move : state.legalMoves()) {
+        if (!isNearExistingStone(state, move)) {
+            continue;
+        }
+        const MoveThreatInfo info = StaticEvaluator::analyzeMove(state, move, player);
+        if (threatSeverity(info.best) > threatSeverity(best)) {
+            best = info.best;
+            if (best == ThreatType::Five) {
+                return best;  // cannot be exceeded
+            }
+        }
+    }
+    return best;
+}
+
+}  // namespace
+
+ThreatAssessment assessRootThreats(const GameState& state) {
+    ThreatAssessment result;
+    if (state.isGameOver() || state.isSwapDecisionPending() || !hasAnyStone(state)) {
+        return result;
+    }
+
+    const Player us   = state.sideToMove();
+    const Player them = otherPlayer(us);
+
+    const ThreatType ours = bestThreatFor(state, us);
+    if (threatSeverity(ours) >= threatSeverity(ThreatType::OpenFour)) {
+        result.attack = AttackThreatLevel::Immediate;
+    } else if (threatSeverity(ours) >= threatSeverity(ThreatType::OpenThree)) {
+        result.attack = AttackThreatLevel::Strong;
+    }
+
+    const ThreatType theirs = bestThreatFor(state, them);
+    if (threatSeverity(theirs) >= threatSeverity(ThreatType::OpenFour)) {
+        result.defense = DefenseThreatLevel::Immediate;
+    } else if (threatSeverity(theirs) >= threatSeverity(ThreatType::OpenThree)) {
+        result.defense = DefenseThreatLevel::Forcing;
+    }
+
+    return result;
+}
+
 }  // namespace gomoku

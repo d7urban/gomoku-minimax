@@ -1,12 +1,16 @@
 #include <cassert>
 
 #include "gomoku/ClockState.hpp"
+#include "gomoku/ThreatAssessment.hpp"
 #include "gomoku/TimeGovernor.hpp"
 
 namespace {
 
+using gomoku::AttackThreatLevel;
 using gomoku::ClockState;
+using gomoku::DefenseThreatLevel;
 using gomoku::MoveBudget;
+using gomoku::ThreatAssessment;
 using gomoku::TimeGovernor;
 using gomoku::TimeGovernorConfig;
 
@@ -98,6 +102,86 @@ void testBudgetReportsBranchingEstimate() {
     assert(budget->finalizationSlackMs == cfg.finalizationSlackMs);
 }
 
+void testThreatBonusScalesBudgetUp() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    ClockState clock;
+    clock.timeLeftMs = 30'000;
+    clock.moveNumber = 20;  // midgame
+
+    const auto baseline = governor.computeBaselineBudget(clock, cfg, {});
+
+    ThreatAssessment defend;
+    defend.defense = DefenseThreatLevel::Immediate;
+    const auto defending = governor.computeBaselineBudget(clock, cfg, defend);
+
+    assert(baseline && defending);
+    assert(defending->targetMs  > baseline->targetMs);
+    assert(defending->hardCapMs > baseline->hardCapMs);
+    assert(defending->hardCapMs >= defending->targetMs);
+}
+
+void testDefenseBonusDominatesAttackBonus() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    ClockState clock;
+    clock.timeLeftMs = 30'000;
+    clock.moveNumber = 20;
+
+    ThreatAssessment attack;
+    attack.attack = AttackThreatLevel::Immediate;
+    const auto attacking = governor.computeBaselineBudget(clock, cfg, attack);
+
+    ThreatAssessment defend;
+    defend.defense = DefenseThreatLevel::Immediate;
+    const auto defending = governor.computeBaselineBudget(clock, cfg, defend);
+
+    // Default cfg: defenseThreatBonusFrac 0.30 > attackThreatBonusFrac 0.15,
+    // so defending gets more time for the same clock state.
+    assert(attacking && defending);
+    assert(defending->targetMs > attacking->targetMs);
+}
+
+void testThreatBonusDoesNotStack() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    ClockState clock;
+    clock.timeLeftMs = 30'000;
+    clock.moveNumber = 20;
+
+    ThreatAssessment defend;
+    defend.defense = DefenseThreatLevel::Immediate;
+    const auto onlyDefend = governor.computeBaselineBudget(clock, cfg, defend);
+
+    ThreatAssessment both;
+    both.defense = DefenseThreatLevel::Immediate;
+    both.attack  = AttackThreatLevel::Immediate;
+    const auto mixed = governor.computeBaselineBudget(clock, cfg, both);
+
+    // Governor takes max(defenseBonus, attackBonus); mixed must match
+    // defence-only (the larger bonus), not be compounded higher.
+    assert(onlyDefend && mixed);
+    assert(mixed->targetMs  == onlyDefend->targetMs);
+    assert(mixed->hardCapMs == onlyDefend->hardCapMs);
+}
+
+void testThreatBonusReclampedByTurnCap() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    ClockState clock;
+    clock.timeLeftMs     = 30'000;
+    clock.moveNumber     = 20;
+    clock.timeoutTurnMs  = 200;  // protocol says 200ms regardless of bonuses
+
+    ThreatAssessment defend;
+    defend.defense = DefenseThreatLevel::Immediate;
+    const auto budget = governor.computeBaselineBudget(clock, cfg, defend);
+
+    assert(budget.has_value());
+    assert(budget->hardCapMs <= 200);
+    assert(budget->targetMs  <= budget->hardCapMs);
+}
+
 void testTargetAndHardCapNeverBelowFloor() {
     TimeGovernor governor;
     TimeGovernorConfig cfg;
@@ -120,6 +204,10 @@ int main() {
     testTurnCapDominatesGovernor();
     testEmergencyFlagSetWhenTimeIsLow();
     testBudgetReportsBranchingEstimate();
+    testThreatBonusScalesBudgetUp();
+    testDefenseBonusDominatesAttackBonus();
+    testThreatBonusDoesNotStack();
+    testThreatBonusReclampedByTurnCap();
     testTargetAndHardCapNeverBelowFloor();
     return 0;
 }

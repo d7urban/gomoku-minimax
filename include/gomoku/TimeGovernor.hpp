@@ -4,6 +4,7 @@
 #include <optional>
 
 #include "gomoku/ClockState.hpp"
+#include "gomoku/ThreatAssessment.hpp"
 
 namespace gomoku {
 
@@ -72,6 +73,14 @@ struct TimeGovernorConfig {
     // ordering; smaller values let the search start an extra iteration
     // more often, larger values are safer against overshoot.
     double nextIterBranchingEstimate {3.0};
+
+    // Threat asymmetry: defence bonus intentionally larger than attack
+    // bonus. Rationale — a wrong defensive move usually loses on the
+    // next ply, while a missed attack only costs a tempo and can be
+    // recovered. The governor applies max(defenseBonus, attackBonus) so
+    // that mixed positions do not stack bonuses multiplicatively.
+    double defenseThreatBonusFrac {0.30};
+    double attackThreatBonusFrac  {0.15};
 };
 
 class TimeGovernor {
@@ -79,9 +88,16 @@ public:
     // Returns std::nullopt when the governor is not engaged (no game
     // clock in the snapshot). In that case the caller must leave its
     // existing per-turn scheduling untouched.
+    //
+    // The optional ThreatAssessment lets the caller inform the governor
+    // that the position is tactically sharp: the governor scales target
+    // and hard cap up by defense/attack bonuses when set, then re-clamps
+    // under the turn cap. A default-constructed assessment (both None)
+    // leaves the baseline behaviour unchanged.
     std::optional<MoveBudget> computeBaselineBudget(
         const ClockState& clock,
-        const TimeGovernorConfig& cfg) const;
+        const TimeGovernorConfig& cfg,
+        const ThreatAssessment& assessment = {}) const;
 };
 
 }  // namespace gomoku

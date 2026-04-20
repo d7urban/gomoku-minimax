@@ -45,7 +45,8 @@ std::int64_t clamp64(std::int64_t v, std::int64_t lo, std::int64_t hi) {
 
 std::optional<MoveBudget> TimeGovernor::computeBaselineBudget(
     const ClockState& clock,
-    const TimeGovernorConfig& cfg) const
+    const TimeGovernorConfig& cfg,
+    const ThreatAssessment& assessment) const
 {
     // Short-circuit: without a game clock we have nothing global to
     // govern. The caller keeps its existing per-turn scheduling.
@@ -79,8 +80,29 @@ std::optional<MoveBudget> TimeGovernor::computeBaselineBudget(
                         targetMs,
                         std::max<std::int64_t>(hardCeil, targetMs));
 
+    // Threat asymmetry: the caller can signal that this position is
+    // tactically sharp. Defence and attack bonuses never stack — mixed
+    // positions take max(defenseBonus, attackBonus) to avoid runaway
+    // budgets from compounded modifiers. The bonus is allowed to push
+    // past the softCeil/hardCeil fractions (those are conservative
+    // defaults, not safety rails), but never past `usable` or the
+    // external turn cap.
+    const double defenseBonus = (assessment.defense != DefenseThreatLevel::None)
+        ? cfg.defenseThreatBonusFrac : 0.0;
+    const double attackBonus  = (assessment.attack  != AttackThreatLevel::None)
+        ? cfg.attackThreatBonusFrac  : 0.0;
+    const double threatScale  = 1.0 + std::max(defenseBonus, attackBonus);
+    if (threatScale > 1.0) {
+        targetMs  = static_cast<std::int64_t>(std::llround(static_cast<double>(targetMs)  * threatScale));
+        hardCapMs = static_cast<std::int64_t>(std::llround(static_cast<double>(hardCapMs) * threatScale));
+        if (targetMs  > usable) targetMs  = usable;
+        if (hardCapMs > usable) hardCapMs = usable;
+        if (hardCapMs < targetMs) hardCapMs = targetMs;
+    }
+
     // Protocol-supplied turn cap wins if present. The governor is not
-    // sovereign: external ceilings always dominate.
+    // sovereign: external ceilings always dominate, including over any
+    // threat bonus applied above.
     if (clock.hasTurnCap() && clock.timeoutTurnMs > 0) {
         if (hardCapMs > clock.timeoutTurnMs) hardCapMs = clock.timeoutTurnMs;
         if (targetMs > hardCapMs) targetMs = hardCapMs;
