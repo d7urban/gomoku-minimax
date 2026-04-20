@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(GOMOKU_ENABLE_SEARCH_PROFILING "Enable search profiling counters in engine hot paths" OFF)
+
 add_library(gomoku_engine
     src/engine/AnalystAI.cpp
     src/engine/ClubAI.cpp
@@ -33,6 +35,10 @@ add_library(gomoku_engine
 
 target_include_directories(gomoku_engine PUBLIC include)
 target_compile_features(gomoku_engine PUBLIC cxx_std_20)
+
+if(GOMOKU_ENABLE_SEARCH_PROFILING)
+    target_compile_definitions(gomoku_engine PRIVATE GOMOKU_ENABLE_SEARCH_PROFILING=1)
+endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(gomoku_engine PRIVATE -Wall -Wextra -Wpedantic)

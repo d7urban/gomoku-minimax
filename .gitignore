@@ -1,7 +1,12 @@
 build/
 build-sfml/
 build-release/
+build-gprof/
 compile_commands.json
 gomoku_analysis_position.txt
 baselines/*/gomoku_gomocup
 baselines/*/gomoku_tournament
+.claude/
+threat_combinations_test
+tournaments/runs/
+Searching for solutions in games and artificial intelligence.pdf

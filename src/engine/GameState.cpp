@@ -171,6 +171,17 @@ Player GameState::cellAt(int row, int col) const {
     return board_[indexOf({row, col})];
 }
 
+bool GameState::isNearStone(Move move) const {
+    if (!isInside(move.row, move.col)) {
+        return false;
+    }
+    return nearStoneCount_[indexOf(move)] > 0;
+}
+
+const std::vector<std::uint8_t>& GameState::nearStoneCounts() const {
+    return nearStoneCount_;
+}
+
 std::uint16_t GameState::lineBits(Player player, int direction, int lineIndex) const {
     const auto& lines = [&]() -> const std::vector<std::uint16_t>& {
         if (player == Player::Black) {
@@ -249,6 +260,7 @@ bool GameState::isLegalMove(Move move) const {
 }
 
 std::vector<Move> GameState::legalMoves() const {
+    bumpLegalMovesCounter();
     std::vector<Move> moves;
     if (isGameOver() || swapPending_) {
         return moves;
@@ -274,11 +286,12 @@ bool GameState::applyMove(Move move) {
 
     board_[indexOf(move)] = sideToMove_;
     setBitboardOccupancy(move, sideToMove_, true);
+    adjustNearStoneCounts(move, +1);
     xorStoneHash(move, sideToMove_);
     ++occupiedCount_;
     actions_.push_back(Action::makeMove(move));
     lastPlacedMove_ = move;
-    updateThreatInfoIndices(undoHistory_.back().affectedIndices);
+    updateThreatInfoIndices(move, undoHistory_.back().affectedIndices);
 
     if (createsWinningLine(move, sideToMove_)) {
         result_ = winningResult(sideToMove_);
@@ -434,6 +447,7 @@ void GameState::restore(const UndoRecord& state) {
         if (placedPlayer != Player::None) {
             board_[moveIndex] = Player::None;
             setBitboardOccupancy(*state.changedMove, placedPlayer, false);
+            adjustNearStoneCounts(*state.changedMove, -1);
         }
 
         for (std::size_t i = 0; i < state.affectedIndices.size(); ++i) {
@@ -468,6 +482,7 @@ void GameState::rebuildDerivedState() {
     antiDiagBitsWhite_.assign(static_cast<std::size_t>(diagonalCount), 0);
     threatInfoBlack_.assign(board_.size(), MoveThreatInfo {});
     threatInfoWhite_.assign(board_.size(), MoveThreatInfo {});
+    nearStoneCount_.assign(board_.size(), 0);
     totalPotentialBlack_ = 0;
     totalPotentialWhite_ = 0;
     positionHash_ = rulesetHash(rules_->ruleset) ^ sideToMoveHash(sideToMove_);
@@ -483,6 +498,7 @@ void GameState::rebuildDerivedState() {
 
         const Move move = moveFromIndex(index);
         setBitboardOccupancy(move, player, true);
+        adjustNearStoneCounts(move, +1);
         xorStoneHash(move, player);
     }
 
@@ -533,6 +549,24 @@ void GameState::setBitboardOccupancy(Move move, Player player, bool occupied) {
     applyBit(antiDiagBitsWhite_[static_cast<std::size_t>(antiDiag.lineIndex)], bitAntiDiag);
 }
 
+void GameState::adjustNearStoneCounts(Move center, int delta) {
+    for (int dRow = -2; dRow <= 2; ++dRow) {
+        for (int dCol = -2; dCol <= 2; ++dCol) {
+            if (dRow == 0 && dCol == 0) {
+                continue;
+            }
+            const int row = center.row + dRow;
+            const int col = center.col + dCol;
+            if (!isInside(row, col)) {
+                continue;
+            }
+            const std::size_t index = indexOf({row, col});
+            nearStoneCount_[index] = static_cast<std::uint8_t>(
+                static_cast<int>(nearStoneCount_[index]) + delta);
+        }
+    }
+}
+
 std::vector<std::size_t> GameState::collectThreatUpdateIndices(Move move) const {
     std::vector<unsigned char> affected(board_.size(), 0);
     std::vector<std::size_t> indices;
@@ -568,18 +602,72 @@ std::vector<std::size_t> GameState::collectThreatUpdateIndices(Move move) const 
     return indices;
 }
 
-void GameState::updateThreatInfoIndices(const std::vector<std::size_t>& indices) {
+void GameState::updateThreatInfoIndices(Move placed, const std::vector<std::size_t>& indices) {
+    // Placing a stone at `placed` only changes the line bits for the
+    // four lines through `placed` (its row, col, diag, antidiag). For
+    // any affected empty cell `target` within 6 steps of `placed`,
+    // exactly one of its four per-direction threats can have changed:
+    // the direction connecting `placed` to `target`. The other three
+    // lineThreats[d] stay valid. Recomputing only the affected
+    // direction saves ~75% of the per-cell pattern work.
+    auto recomputeAggregates = [](MoveThreatInfo& info) {
+        ThreatType first = info.lineThreats[0];
+        ThreatType second = ThreatType::None;
+        for (std::size_t i = 1; i < info.lineThreats.size(); ++i) {
+            const ThreatType value = info.lineThreats[i];
+            if (threatSeverity(value) > threatSeverity(first)) {
+                second = first;
+                first = value;
+            } else if (threatSeverity(value) > threatSeverity(second)) {
+                second = value;
+            }
+        }
+        info.best = first;
+        info.second = second;
+        info.totalScore = threatWeight(first) * 3 / 2 + threatWeight(second);
+    };
+
     for (const std::size_t index : indices) {
         totalPotentialBlack_ -= threatInfoBlack_[index].totalScore;
         totalPotentialWhite_ -= threatInfoWhite_[index].totalScore;
 
-        if (board_[index] == Player::None) {
-            const Move candidate = moveFromIndex(index);
-            threatInfoBlack_[index] = computeMoveThreatInfo(*this, candidate, Player::Black);
-            threatInfoWhite_[index] = computeMoveThreatInfo(*this, candidate, Player::White);
-        } else {
+        if (board_[index] != Player::None) {
             threatInfoBlack_[index] = MoveThreatInfo {};
             threatInfoWhite_[index] = MoveThreatInfo {};
+        } else {
+            const Move target = moveFromIndex(index);
+            const int dr = target.row - placed.row;
+            const int dc = target.col - placed.col;
+            int direction = -1;
+            if (dr == 0 && dc == 0) {
+                // Shouldn't happen — the placed cell is no longer empty.
+                direction = -1;
+            } else if (dr == 0) {
+                direction = 0;  // same row
+            } else if (dc == 0) {
+                direction = 1;  // same column
+            } else if (dr == dc) {
+                direction = 2;  // main diagonal
+            } else if (dr == -dc) {
+                direction = 3;  // antidiagonal
+            }
+
+            if (direction >= 0) {
+                // Update only the single affected direction; the other
+                // three lineThreats entries were already correct and
+                // remain so.
+                threatInfoBlack_[index].lineThreats[static_cast<std::size_t>(direction)] =
+                    computeLineThreatForDirection(*this, target, Player::Black, direction);
+                threatInfoWhite_[index].lineThreats[static_cast<std::size_t>(direction)] =
+                    computeLineThreatForDirection(*this, target, Player::White, direction);
+                recomputeAggregates(threatInfoBlack_[index]);
+                recomputeAggregates(threatInfoWhite_[index]);
+            } else {
+                // Defensive fallback: cell somehow not on any line
+                // through `placed`. Fall back to full recomputation.
+                threatInfoBlack_[index] = computeMoveThreatInfo(*this, target, Player::Black);
+                threatInfoWhite_[index] = computeMoveThreatInfo(*this, target, Player::White);
+            }
         }
 
         totalPotentialBlack_ += threatInfoBlack_[index].totalScore;

@@ -48,6 +48,9 @@ public:
     std::uint16_t lineBits(Player player, int direction, int lineIndex) const;
     LineLocation lineLocation(Move move, int direction) const;
 
+    bool isNearStone(Move move) const;
+    const std::vector<std::uint8_t>& nearStoneCounts() const;
+
     bool isLegalMove(Move move) const;
     std::vector<Move> legalMoves() const;
 
@@ -95,6 +98,10 @@ private:
     std::vector<std::uint16_t> antiDiagBitsWhite_;
     std::vector<MoveThreatInfo> threatInfoBlack_;
     std::vector<MoveThreatInfo> threatInfoWhite_;
+    // Count of stones within a 5x5 (Chebyshev-2) neighborhood of each
+    // cell. Updated incrementally on place/undo so candidate generation
+    // can filter "near a stone" in O(1) per cell.
+    std::vector<std::uint8_t> nearStoneCount_;
     int totalPotentialBlack_ {0};
     int totalPotentialWhite_ {0};
     std::uint64_t positionHash_ {0};
@@ -108,8 +115,9 @@ private:
     void restore(const UndoRecord& snapshot);
     void rebuildDerivedState();
     void setBitboardOccupancy(Move move, Player player, bool occupied);
+    void adjustNearStoneCounts(Move center, int delta);
     std::vector<std::size_t> collectThreatUpdateIndices(Move move) const;
-    void updateThreatInfoIndices(const std::vector<std::size_t>& indices);
+    void updateThreatInfoIndices(Move placed, const std::vector<std::size_t>& indices);
     void setSideToMoveInternal(Player player);
     void setSwapPendingInternal(bool swapPending);
     void xorStoneHash(Move move, Player player);

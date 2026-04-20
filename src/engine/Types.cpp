@@ -19,17 +19,6 @@ Action Action::makeSwapChoice(SwapChoice choice) {
     return action;
 }
 
-Player otherPlayer(Player player) {
-    switch (player) {
-        case Player::Black:
-            return Player::White;
-        case Player::White:
-            return Player::Black;
-        case Player::None:
-        default:
-            return Player::None;
-    }
-}
 
 char playerGlyph(Player player) {
     switch (player) {

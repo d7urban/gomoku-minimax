@@ -7,6 +7,7 @@
 #include "gomoku/AnalystAI.hpp"
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/TacticalAI.hpp"
+#include "gomoku/Threats.hpp"
 
 namespace {
 
@@ -72,7 +73,12 @@ int main(int argc, char** argv) {
 
     for (const BenchPosition& position : positions) {
         const GameState state = buildPosition(position);
+        const bool profilingEnabled = profilingCountersEnabled();
+        if (profilingEnabled) {
+            resetProfilingCounters();
+        }
         const SearchResult result = runController(controller, state, config);
+        const ProfilingCounters counters = profilingEnabled ? readProfilingCounters() : ProfilingCounters {};
 
         std::cout << position.name << '\n';
         std::cout << "  side: " << toString(state.sideToMove()) << '\n';
@@ -81,6 +87,22 @@ int main(int argc, char** argv) {
         std::cout << "  depth: " << result.summary.depthReached << '\n';
         std::cout << "  time: " << result.summary.elapsedMs << " ms\n";
         std::cout << "  nodes: " << result.summary.nodes << '\n';
+        if (profilingEnabled) {
+            std::cout << "  gen_calls: " << counters.generateCandidateCalls << '\n';
+            std::cout << "  legal_calls: " << counters.legalMovesCalls << '\n';
+            std::cout << "  near_checks: " << counters.nearStoneChecks << '\n';
+            std::cout << "  analyze_calls: " << counters.analyzeMoveCalls << '\n';
+            std::cout << "  compute_threat: " << counters.computeThreatInfoCalls << '\n';
+            std::cout << "  pattern_windows: " << counters.patternWindowsScanned << '\n';
+        }
+        if (profilingEnabled && result.summary.nodes > 0) {
+            const double perNodeGen = static_cast<double>(counters.generateCandidateCalls) / static_cast<double>(result.summary.nodes);
+            const double perNodeNear = static_cast<double>(counters.nearStoneChecks) / static_cast<double>(result.summary.nodes);
+            const double perNodeAnalyze = static_cast<double>(counters.analyzeMoveCalls) / static_cast<double>(result.summary.nodes);
+            std::cout << "  per_node_gen: " << perNodeGen << '\n';
+            std::cout << "  per_node_near: " << perNodeNear << '\n';
+            std::cout << "  per_node_analyze: " << perNodeAnalyze << '\n';
+        }
         if (result.summary.usedOpeningBook) {
             std::cout << "  book: " << result.summary.openingBookName << '\n';
         }

@@ -64,7 +64,17 @@ struct Action {
     static Action makeSwapChoice(SwapChoice choice);
 };
 
-Player otherPlayer(Player player);
+inline Player otherPlayer(Player player) {
+    switch (player) {
+        case Player::Black:
+            return Player::White;
+        case Player::White:
+            return Player::Black;
+        case Player::None:
+        default:
+            return Player::None;
+    }
+}
 char playerGlyph(Player player);
 
 std::string_view toString(Player player);

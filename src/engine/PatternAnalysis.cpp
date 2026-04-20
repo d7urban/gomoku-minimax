@@ -20,14 +20,6 @@ int pow3(int exponent) {
     return result;
 }
 
-int encodeCells(const std::vector<PatternCell>& cells) {
-    int code = 0;
-    for (PatternCell cell : cells) {
-        code = code * 3 + static_cast<int>(cell);
-    }
-    return code;
-}
-
 int encodeBoundaryState(bool ownBefore, bool ownAfter) {
     return (ownBefore ? 2 : 0) | (ownAfter ? 1 : 0);
 }
@@ -209,8 +201,20 @@ int countWinningContinuations(
 
 ThreatType classifyPatternWindow(
     const std::vector<PatternCell>& cells, int targetIndex, bool exactFiveRequired, bool ownBefore, bool ownAfter) {
-    const PatternTable& table = tableForLength(static_cast<int>(cells.size()), exactFiveRequired);
-    const int code = encodeCells(cells);
+    return classifyPatternWindow(cells.data(), static_cast<int>(cells.size()), targetIndex, exactFiveRequired, ownBefore, ownAfter);
+}
+
+const ThreatType* patternTableValues(int length, bool exactFiveRequired) {
+    return tableForLength(length, exactFiveRequired).values.data();
+}
+
+ThreatType classifyPatternWindow(
+    const PatternCell* cells, int length, int targetIndex, bool exactFiveRequired, bool ownBefore, bool ownAfter) {
+    const PatternTable& table = tableForLength(length, exactFiveRequired);
+    int code = 0;
+    for (int i = 0; i < length; ++i) {
+        code = code * 3 + static_cast<int>(cells[i]);
+    }
     const int boundaryState = encodeBoundaryState(ownBefore, ownAfter);
     return table.values[static_cast<std::size_t>((code * kBoundaryVariants + boundaryState) * table.length + targetIndex)];
 }
