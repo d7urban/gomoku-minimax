@@ -73,6 +73,12 @@ public:
             return;
         }
         rebuildMatch();
+        // Initialize time_left from timeout_match if available.
+        gomoku::ClockState clock = match_->clockState();
+        if (clock.timeoutMatchMs > 0 && clock.timeLeftMs < 0) {
+            clock.timeLeftMs = clock.timeoutMatchMs;
+            match_->setClockState(clock);
+        }
         writeLine("OK");
     }
 

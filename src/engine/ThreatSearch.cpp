@@ -341,6 +341,9 @@ private:
             }
 
             GameState abstractAfter = applyAllDefenses(afterAttack, attacker, threat);
+            if (abstractAfter.isGameOver() && !isWinningResultFor(abstractAfter.result(), attacker)) {
+                continue;
+            }
             abstractAfter.setSideToMoveForAnalysis(attacker);
             if (!abstractCanWin(abstractAfter, attacker, depth - 1, nextReserved)) {
                 continue;
@@ -437,6 +440,9 @@ private:
             normalizeMoves(nextReserved);
 
             GameState abstractAfter = applyAllDefenses(afterAttack, attacker, threat);
+            if (abstractAfter.isGameOver() && !isWinningResultFor(abstractAfter.result(), attacker)) {
+                continue;
+            }
             abstractAfter.setSideToMoveForAnalysis(attacker);
             if (abstractCanWin(abstractAfter, attacker, depth - 1, nextReserved)) {
                 return true;

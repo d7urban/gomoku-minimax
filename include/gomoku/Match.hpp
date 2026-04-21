@@ -6,7 +6,6 @@
 #include "gomoku/ClockState.hpp"
 #include "gomoku/ClubAI.hpp"
 #include "gomoku/ExpertAI.hpp"
-#include "gomoku/ProofSearch.hpp"
 #include "gomoku/RookieAI.hpp"
 #include "gomoku/TacticalAI.hpp"
 
@@ -48,6 +47,7 @@ public:
     bool applyMove(Move move);
     bool applySwapChoice(SwapChoice choice);
     bool undo();
+    bool smartUndo();
 
     std::optional<Move> chooseAiMove() const;
     SwapChoice chooseAiSwapChoice() const;
@@ -56,7 +56,6 @@ public:
     std::optional<SwapChoice> resolvedSwapChoice() const;
     const std::optional<SearchSummary>& lastSearchSummary() const;
     const std::optional<ThreatSearchResult>& lastThreatSequence() const;
-    const std::optional<ProofAnalysisResult>& lastProofAnalysis() const;
 
 private:
     MatchConfig config_ {};
@@ -65,7 +64,6 @@ private:
     std::optional<SwapChoice> resolvedSwapChoice_;
     std::optional<SearchSummary> lastSearchSummary_;
     std::optional<ThreatSearchResult> lastThreatSequence_;
-    std::optional<ProofAnalysisResult> lastProofAnalysis_;
 
     Seat seatForStone(Player player) const;
     SearchConfig makeSearchConfig() const;

@@ -50,8 +50,6 @@ std::string_view toString(Ruleset ruleset) {
             return "freestyle15";
         case Ruleset::Standard15:
             return "standard15";
-        case Ruleset::Swap16:
-            return "swap16";
         default:
             return "unknown";
     }
@@ -164,10 +162,6 @@ bool tryParseRuleset(std::string_view text, Ruleset& ruleset) {
     }
     if (lowered == "standard15" || lowered == "standard") {
         ruleset = Ruleset::Standard15;
-        return true;
-    }
-    if (lowered == "swap16" || lowered == "swap") {
-        ruleset = Ruleset::Swap16;
         return true;
     }
     return false;

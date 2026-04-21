@@ -1,6 +1,10 @@
 #include "gomoku/OpeningBook.hpp"
 
+#include <algorithm>
 #include <array>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 
 namespace gomoku {
 
@@ -15,20 +19,6 @@ struct OpeningBookEntry {
 
 Action moveAction(Move move) {
     return Action::makeMove(move);
-}
-
-Action swapAction(SwapChoice choice) {
-    return Action::makeSwapChoice(choice);
-}
-
-bool matchesAction(const Action& left, const Action& right) {
-    if (left.kind != right.kind) {
-        return false;
-    }
-    if (left.kind == Action::Kind::Move) {
-        return left.move == right.move;
-    }
-    return left.swapChoice == right.swapChoice;
 }
 
 enum class Symmetry {
@@ -83,17 +73,77 @@ Action transformAction(const Action& action, int boardSize, Symmetry symmetry) {
     return Action::makeMove(transformMove(action.move, boardSize, symmetry));
 }
 
-bool matchesPrefixWithSymmetry(
-    const std::vector<Action>& actions,
-    const OpeningBookEntry& entry,
-    int boardSize,
-    Symmetry symmetry) {
-    for (std::size_t index = 0; index < actions.size(); ++index) {
-        if (!matchesAction(actions[index], transformAction(entry.prefix[index], boardSize, symmetry))) {
-            return false;
+bool matchesAction(const Action& left, const Action& right) {
+    if (left.kind != right.kind) {
+        return false;
+    }
+    if (left.kind == Action::Kind::Move) {
+        return left.move == right.move;
+    }
+    return left.swapChoice == right.swapChoice;
+}
+
+struct CanonicalActionKey {
+    int kind {0};
+    int row {0};
+    int col {0};
+    int swapChoice {0};
+
+    auto tie() const {
+        return std::tie(kind, row, col, swapChoice);
+    }
+
+    bool operator<(const CanonicalActionKey& other) const {
+        return tie() < other.tie();
+    }
+
+    bool operator==(const CanonicalActionKey& other) const {
+        return tie() == other.tie();
+    }
+};
+
+CanonicalActionKey canonicalizeAction(const Action& action) {
+    CanonicalActionKey key;
+    key.kind = static_cast<int>(action.kind);
+    if (action.kind == Action::Kind::Move) {
+        key.row = action.move.row;
+        key.col = action.move.col;
+    } else {
+        key.swapChoice = static_cast<int>(action.swapChoice);
+    }
+    return key;
+}
+
+struct CanonicalEntryKey {
+    std::vector<CanonicalActionKey> prefix;
+    CanonicalActionKey move {};
+
+    bool operator<(const CanonicalEntryKey& other) const {
+        if (prefix != other.prefix) {
+            return prefix < other.prefix;
+        }
+        return move < other.move;
+    }
+};
+
+CanonicalEntryKey canonicalEntryKey(const OpeningBookEntry& entry, int boardSize) {
+    std::optional<CanonicalEntryKey> best;
+    for (const Symmetry symmetry : kSymmetries) {
+        CanonicalEntryKey candidate;
+        candidate.prefix.reserve(entry.prefix.size());
+        for (const Action& action : entry.prefix) {
+            candidate.prefix.push_back(canonicalizeAction(transformAction(action, boardSize, symmetry)));
+        }
+        candidate.move = canonicalizeAction(Action::makeMove(transformMove(entry.move, boardSize, symmetry)));
+        if (!best.has_value() || candidate < *best) {
+            best = std::move(candidate);
         }
     }
-    return true;
+    return *best;
+}
+
+bool isImportedEntry(const OpeningBookEntry& entry) {
+    return entry.lineName.starts_with("cs");
 }
 
 const std::vector<OpeningBookEntry>& entries() {
@@ -112,20 +162,55 @@ const std::vector<OpeningBookEntry>& entries() {
         {Ruleset::Standard15, "diagonal_split", {moveAction({7, 7}), moveAction({6, 8})}, {8, 8}},
         {Ruleset::Standard15, "double_diagonal", {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7})}, {6, 8}},
 
-        {Ruleset::Swap16, "swap_triangle_1", {}, {7, 7}},
-        {Ruleset::Swap16, "swap_triangle_2", {moveAction({7, 7})}, {7, 8}},
-        {Ruleset::Swap16, "swap_triangle_3", {moveAction({7, 7}), moveAction({7, 8})}, {8, 7}},
-        {Ruleset::Swap16, "post_keep_balance",
-            {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7}), swapAction(SwapChoice::KeepColors)}, {8, 8}},
-        {Ruleset::Swap16, "post_swap_balance",
-            {moveAction({7, 7}), moveAction({7, 8}), moveAction({8, 7}), swapAction(SwapChoice::SwapColors)}, {8, 8}},
-
         // Imported Crazy-Sensei openings. Placed after the curated entries
         // so that hand-picked first moves (e.g. center_anchor) still win
         // when prefixes overlap. See scripts/convert_opening_book.py.
 #include "OpeningBookData.inc"
     };
     return kEntries;
+}
+
+struct PrefixGroup {
+    std::vector<const OpeningBookEntry*> entries;
+};
+
+struct BookIndex {
+    std::unordered_map<int, PrefixGroup> groups;
+    bool built {false};
+};
+
+BookIndex& bookIndex() {
+    static BookIndex index;
+    if (!index.built) {
+        index.built = true;
+        const auto& allEntries = entries();
+        for (const OpeningBookEntry& entry : allEntries) {
+            const int key = (static_cast<int>(entry.ruleset) << 16) | static_cast<int>(entry.prefix.size());
+            index.groups[key].entries.push_back(&entry);
+        }
+        for (auto& [key, group] : index.groups) {
+            (void)key;
+            std::stable_sort(group.entries.begin(), group.entries.end(),
+                [](const OpeningBookEntry* left, const OpeningBookEntry* right) {
+                    const bool leftImported = isImportedEntry(*left);
+                    const bool rightImported = isImportedEntry(*right);
+                    if (leftImported != rightImported) {
+                        return !leftImported;
+                    }
+
+                    const CanonicalEntryKey leftKey = canonicalEntryKey(*left, 15);
+                    const CanonicalEntryKey rightKey = canonicalEntryKey(*right, 15);
+                    if (leftKey < rightKey) {
+                        return true;
+                    }
+                    if (rightKey < leftKey) {
+                        return false;
+                    }
+                    return left->lineName < right->lineName;
+                });
+        }
+    }
+    return index;
 }
 
 }  // namespace
@@ -136,22 +221,33 @@ std::optional<OpeningBookHit> lookupOpeningBookMove(const GameState& state) {
     }
 
     const auto& actions = state.actions();
-    for (const OpeningBookEntry& entry : entries()) {
-        if (entry.ruleset != state.rules().ruleset || entry.prefix.size() != actions.size()) {
-            continue;
-        }
+    const int key = (static_cast<int>(state.rules().ruleset) << 16) | static_cast<int>(actions.size());
 
+    const BookIndex& index = bookIndex();
+    const auto it = index.groups.find(key);
+    if (it == index.groups.end()) {
+        return std::nullopt;
+    }
+
+    for (const OpeningBookEntry* entry : it->second.entries) {
         for (const Symmetry symmetry : kSymmetries) {
-            if (!matchesPrefixWithSymmetry(actions, entry, state.boardSize(), symmetry)) {
+            bool match = true;
+            for (std::size_t i = 0; i < actions.size(); ++i) {
+                if (!matchesAction(actions[i], transformAction(entry->prefix[i], state.boardSize(), symmetry))) {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match) {
                 continue;
             }
 
-            const Move bookMove = transformMove(entry.move, state.boardSize(), symmetry);
+            const Move bookMove = transformMove(entry->move, state.boardSize(), symmetry);
             if (!state.isLegalMove(bookMove)) {
                 continue;
             }
 
-            return OpeningBookHit {bookMove, entry.lineName};
+            return OpeningBookHit {bookMove, entry->lineName};
         }
     }
 

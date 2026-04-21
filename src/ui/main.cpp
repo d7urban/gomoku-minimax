@@ -24,10 +24,6 @@ using gomoku::ControllerKind;
 using gomoku::Match;
 using gomoku::MatchConfig;
 using gomoku::Move;
-using gomoku::PositionAnnotation;
-using gomoku::ProofAnalysisResult;
-using gomoku::ProofMoveSummary;
-using gomoku::ProofOutcome;
 using gomoku::Ruleset;
 using gomoku::SwapChoice;
 using gomoku::ThreatSearchResult;
@@ -111,14 +107,6 @@ struct ThreatAnalysisView {
     std::size_t stepIndex {0};
 };
 
-struct ProofAnalysisView {
-    bool active {false};
-    int actionCount {-1};
-    std::uint64_t positionHash {0};
-    gomoku::Player sideToMove {gomoku::Player::None};
-    std::optional<ProofAnalysisResult> result;
-};
-
 struct UiControlState {
     bool autoplayEnabled {false};
     std::string feedbackText;
@@ -142,8 +130,6 @@ struct UiLayout {
 };
 
 constexpr int kFeedbackDurationMs = 2400;
-constexpr const char* kSavedAnalysisFilename = "gomoku_analysis_position.txt";
-
 bool bothSeatsAi(const Match& match) {
     return isAiController(match.config().openerController) && isAiController(match.config().chooserController);
 }
@@ -245,10 +231,6 @@ std::vector<int> boardGuideIndices(int boardSize) {
         return {boardSize / 2};
     }
 
-    if (boardSize == 16) {
-        return {3, 6, 9, 12};
-    }
-
     return {};
 }
 
@@ -258,14 +240,6 @@ void clearThreatAnalysis(ThreatAnalysisView& analysis) {
     analysis.sideToMove = gomoku::Player::None;
     analysis.result.reset();
     analysis.stepIndex = 0;
-}
-
-void clearProofAnalysis(ProofAnalysisView& analysis) {
-    analysis.active = false;
-    analysis.actionCount = -1;
-    analysis.positionHash = 0;
-    analysis.sideToMove = gomoku::Player::None;
-    analysis.result.reset();
 }
 
 void invalidateThreatAnalysisIfStale(const Match& match, ThreatAnalysisView& analysis) {
@@ -296,92 +270,6 @@ void runThreatAnalysis(const Match& match, ThreatAnalysisView& analysis) {
     analysis.sideToMove = match.state().sideToMove();
     analysis.result = searcher.searchWinningSequence(match.state(), analysis.sideToMove);
     analysis.stepIndex = 0;
-}
-
-void invalidateProofAnalysisIfStale(const Match& match, ProofAnalysisView& analysis) {
-    if (!analysis.active) {
-        return;
-    }
-
-    if (match.state().actionCount() != analysis.actionCount || match.state().positionHash() != analysis.positionHash
-        || match.state().sideToMove() != analysis.sideToMove || match.state().isGameOver() || match.state().isSwapDecisionPending()) {
-        clearProofAnalysis(analysis);
-    }
-}
-
-void runProofAnalysis(const Match& match, ProofAnalysisView& analysis) {
-    if (match.state().isGameOver() || match.state().isSwapDecisionPending()) {
-        clearProofAnalysis(analysis);
-        return;
-    }
-
-    gomoku::ProofAnalysisConfig config;
-    config.maxDepth = 8;
-    config.maxNodes = std::max<std::uint64_t>(180000, static_cast<std::uint64_t>(match.config().aiMoveTimeMs) * 900ULL);
-    config.timeLimitMs = std::max(200, match.config().aiMoveTimeMs);
-    config.maxCandidateMoves = 8;
-    config.maxThreatMoves = 10;
-
-    gomoku::ProofAnalyzer analyzer(config);
-    analysis.active = true;
-    analysis.actionCount = match.state().actionCount();
-    analysis.positionHash = match.state().positionHash();
-    analysis.sideToMove = match.state().sideToMove();
-    analysis.result = analyzer.analyze(match.state(), analysis.sideToMove);
-}
-
-std::filesystem::path savedAnalysisPath() {
-    return std::filesystem::current_path() / kSavedAnalysisFilename;
-}
-
-PositionAnnotation makePositionAnnotation(const ProofAnalysisView& analysis) {
-    PositionAnnotation annotation;
-    annotation.label = "ui_analysis_snapshot";
-    if (!analysis.active || !analysis.result.has_value()) {
-        return annotation;
-    }
-
-    annotation.analysisPlayer = analysis.sideToMove;
-    annotation.proofOutcome = analysis.result->outcome;
-    annotation.proofNodes = analysis.result->nodes;
-    annotation.principalVariation = analysis.result->principalVariation;
-    for (const ProofMoveSummary& rootMove : analysis.result->rootMoves) {
-        if (rootMove.outcome == ProofOutcome::ProvenWin) {
-            annotation.provenWinningMoves.push_back(rootMove.move);
-        } else if (rootMove.outcome == ProofOutcome::ProvenLoss) {
-            annotation.provenLosingMoves.push_back(rootMove.move);
-        }
-    }
-    return annotation;
-}
-
-std::optional<ProofAnalysisResult> proofResultFromAnnotation(const PositionAnnotation& annotation) {
-    if (annotation.analysisPlayer == gomoku::Player::None && annotation.proofOutcome == ProofOutcome::Unknown
-        && annotation.proofNodes == 0 && annotation.principalVariation.empty() && annotation.provenWinningMoves.empty()
-        && annotation.provenLosingMoves.empty()) {
-        return std::nullopt;
-    }
-
-    ProofAnalysisResult result;
-    result.attacker = annotation.analysisPlayer;
-    result.outcome = annotation.proofOutcome;
-    result.nodes = annotation.proofNodes;
-    result.principalVariation = annotation.principalVariation;
-    if (!result.principalVariation.empty()) {
-        result.bestMove = result.principalVariation.front();
-    } else if (!annotation.provenWinningMoves.empty()) {
-        result.bestMove = annotation.provenWinningMoves.front();
-    }
-
-    // Annotated-position files only persist proven move outcomes, not the live root threat types.
-    // Reconstructed root moves therefore use ThreatType::None until the proof is recomputed.
-    for (const Move& move : annotation.provenWinningMoves) {
-        result.rootMoves.push_back({move, ThreatType::None, ProofOutcome::ProvenWin, 0, std::numeric_limits<std::uint64_t>::max() / 4});
-    }
-    for (const Move& move : annotation.provenLosingMoves) {
-        result.rootMoves.push_back({move, ThreatType::None, ProofOutcome::ProvenLoss, std::numeric_limits<std::uint64_t>::max() / 4, 0});
-    }
-    return result;
 }
 
 std::string moveListText(const std::vector<Move>& moves, std::size_t limit = 4) {
@@ -582,59 +470,6 @@ void drawThreatSequenceOverlay(sf::RenderWindow& window, const Match& match, con
     }
 }
 
-void drawProofMarkers(sf::RenderWindow& window, const Match& match, const ProofAnalysisView& analysis, float left, float top, float cell) {
-    if (!analysis.active || !analysis.result.has_value()) {
-        return;
-    }
-
-    for (const ProofMoveSummary& rootMove : analysis.result->rootMoves) {
-        const sf::Vector2f point = boardPoint(match, rootMove.move, left, top, cell);
-        if (rootMove.outcome == ProofOutcome::ProvenWin) {
-            sf::CircleShape ring(cell * 0.24f);
-            ring.setOrigin(ring.getRadius(), ring.getRadius());
-            ring.setPosition(point);
-            ring.setFillColor(sf::Color(50, 180, 90, 60));
-            ring.setOutlineThickness(3.0f);
-            ring.setOutlineColor(sf::Color(40, 150, 70, 220));
-            window.draw(ring);
-        } else if (rootMove.outcome == ProofOutcome::ProvenLoss) {
-            sf::RectangleShape marker({cell * 0.42f, cell * 0.42f});
-            marker.setOrigin(marker.getSize().x * 0.5f, marker.getSize().y * 0.5f);
-            marker.setPosition(point);
-            marker.setFillColor(sf::Color::Transparent);
-            marker.setOutlineThickness(2.5f);
-            marker.setOutlineColor(sf::Color(190, 60, 60, 220));
-            window.draw(marker);
-        }
-    }
-}
-
-void drawProofVariationOverlay(sf::RenderWindow& window, const Match& match, const ProofAnalysisView& analysis, const sf::Font& font, float left,
-    float top, float cell) {
-    if (!analysis.active || !analysis.result.has_value() || analysis.result->principalVariation.empty()) {
-        return;
-    }
-
-    const std::size_t visibleCount = std::min<std::size_t>(6, analysis.result->principalVariation.size());
-    for (std::size_t index = 0; index < visibleCount; ++index) {
-        const sf::Vector2f point = boardPoint(match, analysis.result->principalVariation[index], left, top, cell);
-
-        sf::CircleShape ring(cell * 0.18f);
-        ring.setOrigin(ring.getRadius(), ring.getRadius());
-        ring.setPosition(point.x + cell * 0.22f, point.y - cell * 0.22f);
-        ring.setFillColor(sf::Color(90, 150, 245, 170));
-        window.draw(ring);
-
-        sf::Text number;
-        number.setFont(font);
-        number.setCharacterSize(static_cast<unsigned>(std::max(11.0f, cell * 0.22f)));
-        number.setFillColor(sf::Color::White);
-        number.setString(std::to_string(index + 1));
-        number.setPosition(point.x + cell * 0.16f, point.y - cell * 0.33f);
-        window.draw(number);
-    }
-}
-
 void drawBoard(sf::RenderWindow& window, const Match& match, float left, float top, float cell) {
     const int boardSize = match.state().boardSize();
     const float boardPixels = cell * static_cast<float>(boardSize - 1);
@@ -696,7 +531,7 @@ void drawBoard(sf::RenderWindow& window, const Match& match, float left, float t
 }
 
 std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlState& controls, const OverlayState& overlay,
-    const AnalysisOverlay& analysis, const ThreatAnalysisView& threatAnalysis, const ProofAnalysisView& proofAnalysis) {
+    const AnalysisOverlay& analysis, const ThreatAnalysisView& threatAnalysis) {
     std::vector<StatusLine> lines;
     const auto addLine = [&](std::string text, bool bold = false) {
         lines.push_back({std::move(text), bold});
@@ -756,17 +591,6 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
         }
     }
 
-    if (const auto& proof = match.lastProofAnalysis()) {
-        addBlank();
-        addLine("Last proof:");
-        addLine("Outcome: " + std::string(gomoku::toString(proof->outcome)));
-        addLine("Nodes: " + std::to_string(proof->nodes));
-        addLine("Time: " + std::to_string(proof->elapsedMs) + " ms");
-        if (proof->bestMove.has_value()) {
-            addLine("Best move: " + gomoku::moveToString(*proof->bestMove));
-        }
-    }
-
     if (analysis.sideToMove != gomoku::Player::None) {
         addBlank();
         addLine("Live eval:");
@@ -778,7 +602,6 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
     addLine("Settings:");
     addLine("1 freestyle15", match.config().ruleset == Ruleset::Freestyle15);
     addLine("2 standard15", match.config().ruleset == Ruleset::Standard15);
-    addLine("3 swap16", match.config().ruleset == Ruleset::Swap16);
     addLine("O opener: " + std::string(gomoku::toString(match.config().openerController)));
     addLine("P chooser: " + std::string(gomoku::toString(match.config().chooserController)));
     addLine("time (-/+): " + formatMoveTime(match.config().aiMoveTimeMs));
@@ -800,27 +623,12 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
         }
     }
 
-    if (proofAnalysis.active && proofAnalysis.result.has_value()) {
-        addBlank();
-        addLine("Proof analysis:");
-        addLine("Outcome: " + std::string(gomoku::toString(proofAnalysis.result->outcome)),
-            proofAnalysis.result->outcome != ProofOutcome::Unknown);
-        addLine("Nodes: " + std::to_string(proofAnalysis.result->nodes));
-        addLine("Time: " + std::to_string(proofAnalysis.result->elapsedMs) + " ms");
-        if (proofAnalysis.result->bestMove.has_value()) {
-            addLine("Best move: " + gomoku::moveToString(*proofAnalysis.result->bestMove));
-        }
-    }
-
     addBlank();
     addLine("Actions:");
     addLine("R restart");
     addLine("U undo");
     addLine("Space toggle autoplay");
     addLine("A analyze threats");
-    addLine("F analyze proof");
-    addLine("X save analysis");
-    addLine("L load analysis");
     addLine("Left/Right threat step");
     addLine("Esc clear analysis");
     if (match.state().isSwapDecisionPending()) {
@@ -926,60 +734,6 @@ std::string buildThreatAnalysisText(const ThreatAnalysisView& analysis) {
             text += moveListText(step.requiredEmpty);
             text += "\n    continue: ";
             text += moveListText(step.continuationMoves);
-            text += '\n';
-        }
-    }
-
-    return text;
-}
-
-std::string buildProofAnalysisText(const ProofAnalysisView& analysis) {
-    if (!analysis.active || !analysis.result.has_value()) {
-        return "Proof analysis:\n  inactive\n";
-    }
-
-    std::string text = "Proof analysis";
-    text += " (";
-    text += std::string(gomoku::toString(analysis.sideToMove));
-    text += "):\n";
-    text += "Outcome: ";
-    text += std::string(gomoku::toString(analysis.result->outcome));
-    text += "\nNodes: ";
-    text += std::to_string(analysis.result->nodes);
-    text += "\nTime: ";
-    text += std::to_string(analysis.result->elapsedMs);
-    text += " ms\nDepth: ";
-    text += std::to_string(analysis.result->maxDepthReached);
-    text += "\nRoot pn/dn: ";
-    text += std::to_string(analysis.result->rootProofNumber);
-    text += " / ";
-    text += std::to_string(analysis.result->rootDisproofNumber);
-    if (analysis.result->bestMove.has_value()) {
-        text += "\nBest move: ";
-        text += gomoku::moveToString(*analysis.result->bestMove);
-    }
-    if (analysis.result->usedThreatShortcut) {
-        text += "\nShortcut: threat win";
-    }
-
-    if (!analysis.result->principalVariation.empty()) {
-        text += "\nPV: ";
-        text += moveListText(analysis.result->principalVariation, 6);
-    }
-
-    if (!analysis.result->rootMoves.empty()) {
-        text += "\n\nRoot moves:\n";
-        const std::size_t count = std::min<std::size_t>(8, analysis.result->rootMoves.size());
-        for (std::size_t index = 0; index < count; ++index) {
-            const ProofMoveSummary& move = analysis.result->rootMoves[index];
-            text += "  ";
-            text += gomoku::moveToString(move.move);
-            text += "  ";
-            text += std::string(gomoku::toString(move.outcome));
-            text += "  ";
-            text += std::to_string(move.proofNumber);
-            text += "/";
-            text += std::to_string(move.disproofNumber);
             text += '\n';
         }
     }
@@ -1097,7 +851,6 @@ int main(int argc, char** argv) {
     OverlayState overlay;
     AnalysisOverlay analysis;
     ThreatAnalysisView threatAnalysis;
-    ProofAnalysisView proofAnalysis;
 
     sf::RenderWindow window(sf::VideoMode(1380, 900), "Gomoku - Checkpoint 5");
     window.setFramerateLimit(60);
@@ -1108,7 +861,6 @@ int main(int argc, char** argv) {
     const auto replaceMatch = [&](const MatchConfig& nextConfig) {
         match = Match(nextConfig);
         clearThreatAnalysis(threatAnalysis);
-        clearProofAnalysis(proofAnalysis);
         aiClock.restart();
     };
 
@@ -1143,22 +895,18 @@ int main(int argc, char** argv) {
                 if (event.key.code == sf::Keyboard::R) {
                     match.reset();
                     clearThreatAnalysis(threatAnalysis);
-                    clearProofAnalysis(proofAnalysis);
                 } else if (event.key.code == sf::Keyboard::U) {
-                    match.undo();
+                    match.smartUndo();
                     clearThreatAnalysis(threatAnalysis);
-                    clearProofAnalysis(proofAnalysis);
                 } else if (event.key.code == sf::Keyboard::K) {
                     if (match.applySwapChoice(SwapChoice::KeepColors)) {
                         aiClock.restart();
                         clearThreatAnalysis(threatAnalysis);
-                        clearProofAnalysis(proofAnalysis);
                     }
                 } else if (event.key.code == sf::Keyboard::S) {
                     if (match.applySwapChoice(SwapChoice::SwapColors)) {
                         aiClock.restart();
                         clearThreatAnalysis(threatAnalysis);
-                        clearProofAnalysis(proofAnalysis);
                     }
                 } else if (event.key.code == sf::Keyboard::Num1) {
                     MatchConfig next = match.config();
@@ -1174,13 +922,6 @@ int main(int argc, char** argv) {
                     next.chooserController = ControllerKind::AnalystAI;
                     replaceMatch(next);
                     setFeedback(controls, "Rules: standard15");
-                } else if (event.key.code == sf::Keyboard::Num3) {
-                    MatchConfig next = match.config();
-                    next.ruleset = Ruleset::Swap16;
-                    next.openerController = ControllerKind::Human;
-                    next.chooserController = ControllerKind::AnalystAI;
-                    replaceMatch(next);
-                    setFeedback(controls, "Rules: swap16");
                 } else if (event.key.code == sf::Keyboard::O) {
                     MatchConfig next = match.config();
                     next.openerController = cycleController(next.openerController, 1);
@@ -1217,45 +958,8 @@ int main(int argc, char** argv) {
                     overlay.showTopCandidates = !overlay.showTopCandidates;
                 } else if (event.key.code == sf::Keyboard::A) {
                     runThreatAnalysis(match, threatAnalysis);
-                    clearProofAnalysis(proofAnalysis);
-                } else if (event.key.code == sf::Keyboard::F) {
-                    runProofAnalysis(match, proofAnalysis);
-                    clearThreatAnalysis(threatAnalysis);
-                } else if (event.key.code == sf::Keyboard::X) {
-                    std::ofstream output(savedAnalysisPath());
-                    if (!output) {
-                        setFeedback(controls, "Failed to save analysis file");
-                    } else {
-                        output << serializeAnnotatedPosition(match.state(), makePositionAnnotation(proofAnalysis));
-                        setFeedback(controls, "Saved " + savedAnalysisPath().filename().string());
-                    }
-                } else if (event.key.code == sf::Keyboard::L) {
-                    std::ifstream input(savedAnalysisPath());
-                    if (!input) {
-                        setFeedback(controls, "No saved analysis file");
-                    } else {
-                        std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-                        gomoku::GameState loadedState;
-                        PositionAnnotation annotation;
-                        std::string error;
-                        if (!deserializeAnnotatedPosition(text, loadedState, annotation, error) || !loadIntoMatch(loadedState)) {
-                            setFeedback(controls, error.empty() ? "Failed to load saved analysis" : error);
-                        } else {
-                            clearThreatAnalysis(threatAnalysis);
-                            clearProofAnalysis(proofAnalysis);
-                            if (const auto proof = proofResultFromAnnotation(annotation)) {
-                                proofAnalysis.active = true;
-                                proofAnalysis.actionCount = match.state().actionCount();
-                                proofAnalysis.positionHash = match.state().positionHash();
-                                proofAnalysis.sideToMove = proof->attacker;
-                                proofAnalysis.result = *proof;
-                            }
-                            setFeedback(controls, "Loaded " + savedAnalysisPath().filename().string());
-                        }
-                    }
                 } else if (event.key.code == sf::Keyboard::Escape) {
                     clearThreatAnalysis(threatAnalysis);
-                    clearProofAnalysis(proofAnalysis);
                 } else if (event.key.code == sf::Keyboard::Right) {
                     if (threatAnalysis.active && threatAnalysis.result.has_value() && threatAnalysis.stepIndex + 1 < threatAnalysis.result->sequence.size()) {
                         ++threatAnalysis.stepIndex;
@@ -1274,7 +978,6 @@ int main(int argc, char** argv) {
                     if (match.applyMove(*move)) {
                         aiClock.restart();
                         clearThreatAnalysis(threatAnalysis);
-                        clearProofAnalysis(proofAnalysis);
                     }
                 }
             }
@@ -1285,12 +988,10 @@ int main(int argc, char** argv) {
             match.stepAi();
             aiClock.restart();
             clearThreatAnalysis(threatAnalysis);
-            clearProofAnalysis(proofAnalysis);
         }
 
         refreshAnalysis(match, analysis);
         invalidateThreatAnalysisIfStale(match, threatAnalysis);
-        invalidateProofAnalysisIfStale(match, proofAnalysis);
 
         const UiLayout layout = computeLayout(window.getSize(), match.state().boardSize());
 
@@ -1308,9 +1009,7 @@ int main(int argc, char** argv) {
         }
         if (font) {
             drawThreatSequenceOverlay(window, match, threatAnalysis, *font, layout.boardLeft, layout.boardTop, layout.cell);
-            drawProofVariationOverlay(window, match, proofAnalysis, *font, layout.boardLeft, layout.boardTop, layout.cell);
         }
-        drawProofMarkers(window, match, proofAnalysis, layout.boardLeft, layout.boardTop, layout.cell);
 
         if (font) {
             const sf::Vector2f statusPanelPos {layout.statusPanel.left, layout.statusPanel.top};
@@ -1323,7 +1022,7 @@ int main(int argc, char** argv) {
             window.draw(statusPanel);
             window.draw(candidatePanel);
 
-            drawStatusLines(window, *font, buildStatusLines(match, controls, overlay, analysis, threatAnalysis, proofAnalysis),
+            drawStatusLines(window, *font, buildStatusLines(match, controls, overlay, analysis, threatAnalysis),
                 {statusPanelPos.x + layout.panelPadding, statusPanelPos.y + layout.panelPadding}, layout.statusCharacterSize, 1.05f);
 
             sf::Text candidateText;
@@ -1332,9 +1031,8 @@ int main(int argc, char** argv) {
             candidateText.setLineSpacing(1.08f);
             candidateText.setFillColor(sf::Color(25, 25, 25));
             candidateText.setPosition(candidatePanelPos.x + layout.panelPadding, candidatePanelPos.y + layout.panelPadding);
-            candidateText.setString(proofAnalysis.active ? buildProofAnalysisText(proofAnalysis)
-                                                         : (threatAnalysis.active ? buildThreatAnalysisText(threatAnalysis)
-                                                                                  : buildCandidateText(analysis)));
+            candidateText.setString(threatAnalysis.active ? buildThreatAnalysisText(threatAnalysis)
+                                                          : buildCandidateText(analysis));
             window.draw(candidateText);
         } else {
             window.setTitle("Gomoku - Checkpoint 5 (font missing)");

@@ -14,7 +14,6 @@ enum class Player {
 enum class Ruleset {
     Freestyle15,
     Standard15,
-    Swap16,
 };
 
 enum class GameResult {

@@ -21,7 +21,6 @@ add_library(gomoku_engine
     src/engine/Match.cpp
     src/engine/OpeningBook.cpp
     src/engine/PatternAnalysis.cpp
-    src/engine/ProofSearch.cpp
     src/engine/Replay.cpp
     src/engine/RookieAI.cpp
     src/engine/Rules.cpp
@@ -55,9 +54,6 @@ target_link_libraries(gomoku_bench PRIVATE gomoku_engine)
 
 add_executable(gomoku_book src/tools/opening_book.cpp)
 target_link_libraries(gomoku_book PRIVATE gomoku_engine)
-
-add_executable(gomoku_proof_bench src/tools/proof_benchmark.cpp)
-target_link_libraries(gomoku_proof_bench PRIVATE gomoku_engine)
 
 add_executable(gomoku_gomocup src/tools/gomoku_gomocup.cpp)
 target_link_libraries(gomoku_gomocup PRIVATE gomoku_engine)

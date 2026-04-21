@@ -1,6 +1,5 @@
 #include "gomoku/Replay.hpp"
 
-#include <cctype>
 #include <sstream>
 
 namespace gomoku {
@@ -33,27 +32,6 @@ bool parseMoveList(std::istringstream& input, std::vector<Move>& moves, std::str
     }
     badToken.clear();
     return true;
-}
-
-bool tryParseProofOutcome(std::string_view text, ProofOutcome& outcome) {
-    std::string lowered(text);
-    for (char& ch : lowered) {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-
-    if (lowered == "unknown") {
-        outcome = ProofOutcome::Unknown;
-        return true;
-    }
-    if (lowered == "proven_win") {
-        outcome = ProofOutcome::ProvenWin;
-        return true;
-    }
-    if (lowered == "proven_loss") {
-        outcome = ProofOutcome::ProvenLoss;
-        return true;
-    }
-    return false;
 }
 
 }  // namespace
@@ -133,19 +111,11 @@ std::string serializeAnnotatedPosition(const GameState& state, const PositionAnn
     if (annotation.analysisPlayer != Player::None) {
         output << "analysis_player=" << toString(annotation.analysisPlayer) << '\n';
     }
-    output << "proof_outcome=" << toString(annotation.proofOutcome) << '\n';
-    output << "proof_nodes=" << annotation.proofNodes << '\n';
     if (!annotation.label.empty()) {
         output << "label " << annotation.label << '\n';
     }
     if (!annotation.principalVariation.empty()) {
         output << "pv " << serializeMoveList(annotation.principalVariation) << '\n';
-    }
-    if (!annotation.provenWinningMoves.empty()) {
-        output << "proven_wins " << serializeMoveList(annotation.provenWinningMoves) << '\n';
-    }
-    if (!annotation.provenLosingMoves.empty()) {
-        output << "proven_losses " << serializeMoveList(annotation.provenLosingMoves) << '\n';
     }
     return output.str();
 }
@@ -203,22 +173,6 @@ bool deserializeAnnotatedPosition(std::string_view text, GameState& state, Posit
             annotation.analysisPlayer = player;
             continue;
         }
-        if (current.rfind("proof_outcome=", 0) == 0) {
-            const std::string value = current.substr(14);
-            if (!tryParseProofOutcome(value, annotation.proofOutcome)) {
-                error = "Invalid proof outcome on line " + std::to_string(lineNumber) + ": " + value;
-                return false;
-            }
-            continue;
-        }
-        if (current.rfind("proof_nodes=", 0) == 0) {
-            std::istringstream value(current.substr(12));
-            if (!(value >> annotation.proofNodes)) {
-                error = "Invalid proof node count on line " + std::to_string(lineNumber);
-                return false;
-            }
-            continue;
-        }
         if (current.rfind("label ", 0) == 0) {
             annotation.label = current.substr(6);
             continue;
@@ -228,20 +182,14 @@ bool deserializeAnnotatedPosition(std::string_view text, GameState& state, Posit
         std::string command;
         lineStream >> command;
 
-        if (command == "pv" || command == "proven_wins" || command == "proven_losses") {
+        if (command == "pv") {
             std::vector<Move> moves;
             std::string badToken;
             if (!parseMoveList(lineStream, moves, badToken)) {
                 error = "Invalid move token on line " + std::to_string(lineNumber) + ": " + badToken;
                 return false;
             }
-            if (command == "pv") {
-                annotation.principalVariation = std::move(moves);
-            } else if (command == "proven_wins") {
-                annotation.provenWinningMoves = std::move(moves);
-            } else {
-                annotation.provenLosingMoves = std::move(moves);
-            }
+            annotation.principalVariation = std::move(moves);
             continue;
         }
 

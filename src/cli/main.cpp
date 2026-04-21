@@ -100,15 +100,6 @@ void printStatus(const Match& match) {
         }
     }
 
-    if (const auto& proof = match.lastProofAnalysis()) {
-        std::cout << "Proof outcome: " << gomoku::toString(proof->outcome)
-                  << ", nodes: " << proof->nodes
-                  << ", time: " << proof->elapsedMs << " ms";
-        if (proof->bestMove.has_value()) {
-            std::cout << ", best: " << gomoku::moveToString(*proof->bestMove);
-        }
-        std::cout << '\n';
-    }
 }
 
 void printHelp() {
@@ -116,7 +107,7 @@ void printHelp() {
               << "  <coord>      play a move, e.g. h8\n"
               << "  keep         choose to keep colors in swap mode\n"
               << "  swap         choose to swap colors in swap mode\n"
-              << "  undo         undo one action\n"
+              << "  undo         undo back to your turn\n"
               << "  restart      restart the match\n"
               << "  save         print replay log\n"
               << "  help         show this help\n"
@@ -167,8 +158,8 @@ int main(int argc, char** argv) {
 
     Match match(config);
 
-    std::cout << "gomoku_cli - text fallback with Checkpoint 5 proof-assisted analysis\n";
-    std::cout << "Usage: gomoku_cli [freestyle15|standard15|swap16] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]\n\n";
+    std::cout << "gomoku_cli - text fallback\n";
+    std::cout << "Usage: gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]\n\n";
     printHelp();
 
     while (true) {
@@ -207,7 +198,7 @@ int main(int argc, char** argv) {
             continue;
         }
         if (lowered == "undo") {
-            if (!match.undo()) {
+            if (!match.smartUndo()) {
                 std::cout << "Nothing to undo.\n";
             }
             continue;

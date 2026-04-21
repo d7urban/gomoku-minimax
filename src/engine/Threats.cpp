@@ -145,6 +145,9 @@ int threatSeverityEnhanced(const MoveThreatInfo& info) {
     if (info.best == ThreatType::SimpleFour && info.second == ThreatType::OpenThree) {
         return 800;
     }
+    if (info.best == ThreatType::SimpleFour) {
+        return 700 + threatSeverity(info.second) / 4;
+    }
     if (info.best == ThreatType::OpenThree && info.second == ThreatType::OpenThree) {
         return 600;
     }
@@ -162,6 +165,11 @@ ThreatType computeDirectionThreatImpl(
 {
     ThreatType best = ThreatType::None;
     const GameState::LineLocation line = state.lineLocation(move, directionIndex);
+    constexpr int kMaxTrackedLineLength = 15;
+    if (line.offset < 0 || line.offset >= line.length
+        || line.length <= 0 || line.length > kMaxTrackedLineLength) {
+        return ThreatType::None;
+    }
     const std::uint16_t ownBits = state.lineBits(player, directionIndex, line.lineIndex);
     const std::uint16_t opponentBits = state.lineBits(otherPlayer(player), directionIndex, line.lineIndex);
 
@@ -174,7 +182,8 @@ ThreatType computeDirectionThreatImpl(
 
     // Fold the hypothetical target stone into ownBits once; the inner
     // classifier can now treat all positions uniformly.
-    const std::uint16_t ownBitsWithTarget = static_cast<std::uint16_t>(ownBits | (1U << line.offset));
+    const unsigned lineOffset = static_cast<unsigned>(line.offset);
+    const std::uint16_t ownBitsWithTarget = static_cast<std::uint16_t>(ownBits | (1U << lineOffset));
 
     auto severityLess = [](ThreatType left, ThreatType right) {
         return threatSeverity(left) < threatSeverity(right);
@@ -182,20 +191,30 @@ ThreatType computeDirectionThreatImpl(
 
     auto scanWindows = [&]<int Length>(const ThreatType* tableValues, std::integral_constant<int, Length>) {
         constexpr std::uint16_t lengthMask = static_cast<std::uint16_t>((1U << Length) - 1);
+        const int maxStartOffset = line.length - Length;
+        if (maxStartOffset < 0) {
+            return;
+        }
         for (int targetOffset = 0; targetOffset < Length; ++targetOffset) {
-            const int startOffset = line.offset - targetOffset;
-            if (startOffset < 0 || startOffset + Length > line.length) {
+            if (line.offset < targetOffset) {
                 continue;
             }
-            const std::uint16_t windowMask = static_cast<std::uint16_t>(lengthMask << startOffset);
+            const int startOffset = line.offset - targetOffset;
+            if (startOffset > maxStartOffset) {
+                continue;
+            }
+            const unsigned startShift = static_cast<unsigned>(startOffset);
+            const std::uint16_t windowMask = static_cast<std::uint16_t>(
+                static_cast<std::uint32_t>(lengthMask) << startShift);
             if ((ownBits & windowMask) == 0U) {
                 continue;
             }
             bumpPatternWindowsScanned();
             const bool ownBefore = startOffset > 0
-                && (ownBits & static_cast<std::uint16_t>(1U << (startOffset - 1))) != 0U;
-            const bool ownAfter = startOffset + Length < line.length
-                && (ownBits & static_cast<std::uint16_t>(1U << (startOffset + Length))) != 0U;
+                && (ownBits & static_cast<std::uint16_t>(1U << static_cast<unsigned>(startOffset - 1))) != 0U;
+            const int afterOffset = startOffset + Length;
+            const bool ownAfter = afterOffset < line.length
+                && (ownBits & static_cast<std::uint16_t>(1U << static_cast<unsigned>(afterOffset))) != 0U;
             const ThreatType window = classifyPatternBits<Length>(
                 ownBitsWithTarget, opponentBits, startOffset, targetOffset, ownBefore, ownAfter, tableValues);
             best = std::max(best, window, severityLess);
@@ -359,6 +378,8 @@ std::vector<CandidateMove> StaticEvaluator::generateCandidateMoves(const GameSta
             candidate.score += defensiveInfo.totalScore;
 
             if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+                candidate.score += 500'000;
+            } else if (threatSeverityEnhanced(defensiveInfo) >= 600) {
                 candidate.score += 500'000;
             } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
                 candidate.score += 50'000;

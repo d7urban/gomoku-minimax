@@ -9,7 +9,7 @@ Build a C++ gomoku program with a graphical desktop UI and a staged engine roadm
 ## Scope
 
 - Primary game mode: 15x15 free-style gomoku.
-- Also support: 15x15 standard gomoku (exactly five) and 16x16 swap-rule mode, since the PDF and article use different rulesets.
+- Also support: 15x15 standard gomoku (exactly five).
 - Human vs AI, AI vs AI, undo, restart, move history, last-move highlight, and optional threat/analysis overlays.
 - Clean split between `engine/` and `ui/` so the AI can be tested headlessly.
 
@@ -17,7 +17,7 @@ Build a C++ gomoku program with a graphical desktop UI and a staged engine roadm
 
 - Language/build: C++20 + CMake.
 - UI: SFML for board rendering, mouse input, overlays, and simple panels.
-- Board representation: 16x16 padded internal board so the same code can serve 15x15 and 16x16 modes.
+- Board representation: 16x16 padded internal board for efficient bitboard operations.
 - Engine data structures: rotated bitboards plus incremental threat boards once the stronger bots arrive.
 - Search progression: heuristic bot -> alpha-beta bot -> threat-search bot -> PVS bot -> proof-assisted analysis bot.
 
@@ -72,8 +72,7 @@ Build a C++ gomoku program with a graphical desktop UI and a staged engine roadm
 - Implement the defensive filtering ideas from the article so search focuses on moves that actually answer live threats.
 - Add self-play tooling and benchmark suites for tuning search parameters and evaluation weights.
 - Build a small opening book:
-  - central openings for 15x15 modes,
-  - swap-aware opening set for 16x16 mode.
+  - central openings for 15x15 modes.
 - Improve the UI with time controls, AI-vs-AI autoplay, bot strength selector, and opening-book indicators.
 - Add `Expert` opponent:
   - PVS,

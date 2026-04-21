@@ -6,21 +6,21 @@
 #include <vector>
 
 #include "gomoku/ClockState.hpp"
-#include "gomoku/ProofSearch.hpp"
 #include "gomoku/ThreatSearch.hpp"
 #include "gomoku/Threats.hpp"
 
 namespace gomoku {
 
 struct SearchConfig {
-    int maxDepth {4};
-    std::uint64_t maxNodes {90000};
+    int maxDepth {64};
+    std::uint64_t maxNodes {0};
     int timeLimitMs {250};
     int softTimeLimitMs {0};
     std::size_t maxCandidateMoves {18};
     bool useAspirationWindows {true};
     bool useNullMovePruning {true};
     bool useDefensiveFiltering {true};
+    bool useRootThreatSearch {true};
     bool useOpeningBook {false};
     bool useVcfAtLeaves {true};
     int vcfMaxDepth {10};
@@ -54,8 +54,13 @@ struct SearchResult {
     std::optional<Move> bestMove;
     SearchSummary summary {};
     std::optional<ThreatSearchResult> threatSequence;
-    std::optional<ProofAnalysisResult> proofAnalysis;
 };
+
+// Counter-attacks that are strong enough to survive the defensive filter
+// when the opponent is already threatening. A double-open-three fork is a
+// valid counter to an opponent OpenThree even though its primary component
+// is still only OpenThree.
+bool isDefensiveCounterMove(const MoveThreatInfo& info, bool opponentFourOnBoard);
 
 class SearchEngine {
 public:

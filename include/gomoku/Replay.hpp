@@ -6,18 +6,13 @@
 #include <vector>
 
 #include "gomoku/GameState.hpp"
-#include "gomoku/ProofSearch.hpp"
 
 namespace gomoku {
 
 struct PositionAnnotation {
     std::string label;
     Player analysisPlayer {Player::None};
-    ProofOutcome proofOutcome {ProofOutcome::Unknown};
-    std::uint64_t proofNodes {0};
     std::vector<Move> principalVariation;
-    std::vector<Move> provenWinningMoves;
-    std::vector<Move> provenLosingMoves;
 };
 
 std::string serializeReplay(const GameState& state);

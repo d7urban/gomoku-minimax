@@ -10,9 +10,16 @@ SearchResult TacticalAI::chooseMove(const GameState& state, Player player, Searc
         return result;
     }
 
-    config.maxDepth = std::max(config.maxDepth, 5);
+    const int timeMs = std::max(config.timeLimitMs, 500);
+    if (timeMs >= 5000) {
+        config.maxDepth = std::max(config.maxDepth, 30);
+    } else if (timeMs >= 2000) {
+        config.maxDepth = std::max(config.maxDepth, 20);
+    } else {
+        config.maxDepth = std::max(config.maxDepth, 10);
+    }
     config.maxNodes = std::max<std::uint64_t>(config.maxNodes, 180000);
-    config.timeLimitMs = std::max(config.timeLimitMs, 500);
+    config.timeLimitMs = timeMs;
     config.maxCandidateMoves = std::max<std::size_t>(config.maxCandidateMoves, 20);
 
     SearchEngine engine(config);

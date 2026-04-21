@@ -14,7 +14,6 @@ void Match::reset() {
     resolvedSwapChoice_.reset();
     lastSearchSummary_.reset();
     lastThreatSequence_.reset();
-    lastProofAnalysis_.reset();
 }
 
 const MatchConfig& Match::config() const {
@@ -90,6 +89,38 @@ bool Match::undo() {
     return undone;
 }
 
+bool Match::smartUndo() {
+    if (state_.actionCount() == 0) {
+        return false;
+    }
+
+    const bool onlyOneSeatIsHuman =
+        (config_.openerController == ControllerKind::Human) != (config_.chooserController == ControllerKind::Human);
+
+    if (!onlyOneSeatIsHuman) {
+        return undo();
+    }
+
+    const ControllerKind humanSeat = (config_.openerController == ControllerKind::Human)
+        ? ControllerKind::Human : config_.chooserController;
+
+    int undos = 0;
+    for (int i = 0; i < 2 && state_.actionCount() > 0; ++i) {
+        if (!state_.undo()) {
+            break;
+        }
+        ++undos;
+        recomputeSwapChoice();
+        if (controllerToAct() == humanSeat) {
+            break;
+        }
+    }
+
+    lastSearchSummary_.reset();
+    lastThreatSequence_.reset();
+    return undos > 0;
+}
+
 std::optional<Move> Match::chooseAiMove() const {
     const SearchConfig searchConfig = makeSearchConfig();
     switch (controllerToAct()) {
@@ -136,7 +167,6 @@ void Match::stepAi() {
         applySwapChoice(chooseAiSwapChoice());
         lastSearchSummary_.reset();
         lastThreatSequence_.reset();
-        lastProofAnalysis_.reset();
         return;
     }
 
@@ -155,7 +185,6 @@ void Match::stepAi() {
         }
         lastSearchSummary_ = result.summary;
         lastThreatSequence_ = result.threatSequence;
-        lastProofAnalysis_ = result.proofAnalysis;
         if (result.bestMove.has_value()) {
             applyMove(*result.bestMove);
         }
@@ -164,7 +193,6 @@ void Match::stepAi() {
 
     lastSearchSummary_.reset();
     lastThreatSequence_.reset();
-    lastProofAnalysis_.reset();
     if (const std::optional<Move> move = RookieAI::chooseMove(state_, state_.sideToMove())) {
         applyMove(*move);
     }
@@ -180,10 +208,6 @@ const std::optional<SearchSummary>& Match::lastSearchSummary() const {
 
 const std::optional<ThreatSearchResult>& Match::lastThreatSequence() const {
     return lastThreatSequence_;
-}
-
-const std::optional<ProofAnalysisResult>& Match::lastProofAnalysis() const {
-    return lastProofAnalysis_;
 }
 
 Seat Match::seatForStone(Player player) const {
@@ -202,7 +226,27 @@ SearchConfig Match::makeSearchConfig() const {
     SearchConfig config;
     config.timeLimitMs = std::max(1, config_.aiMoveTimeMs);
     config.softTimeLimitMs = std::max(1, config.timeLimitMs * 3 / 4);
-    config.maxNodes = std::max<std::uint64_t>(90000, static_cast<std::uint64_t>(config.timeLimitMs) * 1200ULL);
+
+    if (config.timeLimitMs >= 10000) {
+        config.maxDepth = 64;
+    } else if (config.timeLimitMs >= 5000) {
+        config.maxDepth = 50;
+    } else if (config.timeLimitMs >= 2000) {
+        config.maxDepth = 40;
+    } else if (config.timeLimitMs >= 1000) {
+        config.maxDepth = 30;
+    } else if (config.timeLimitMs >= 500) {
+        config.maxDepth = 24;
+    } else {
+        config.maxDepth = 18;
+    }
+
+    const std::uint64_t timeFactor = static_cast<std::uint64_t>(config.timeLimitMs);
+    config.maxNodes = timeFactor * 1500ULL;
+    if (config.maxNodes < 500'000ULL) {
+        config.maxNodes = 500'000ULL;
+    }
+
     config.clock = clockState_;
     config.clock.moveNumber = static_cast<std::uint32_t>(state_.moveCount());
     return config;

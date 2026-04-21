@@ -7,7 +7,6 @@
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/Match.hpp"
 #include "gomoku/OpeningBook.hpp"
-#include "gomoku/ProofSearch.hpp"
 #include "gomoku/Replay.hpp"
 #include "gomoku/TacticalAI.hpp"
 #include "gomoku/ThreatSearch.hpp"
@@ -73,24 +72,6 @@ int main() {
 
         assert(game.applyMove(overlineMove));
         assert(game.result() == GameResult::Ongoing);
-    }
-
-    {
-        GameState game(rulesFor(Ruleset::Swap16));
-        assert(game.applyMove({7, 7}));
-        assert(game.applyMove({7, 8}));
-        assert(game.applyMove({8, 7}));
-        assert(game.isSwapDecisionPending());
-
-        const Player sideBefore = game.sideToMove();
-        const std::uint64_t hashBefore = game.positionHash();
-        game.setSideToMoveForAnalysis(Player::Black);
-        assert(game.sideToMove() == sideBefore);
-        assert(game.positionHash() == hashBefore);
-
-        assert(game.applySwapChoice(SwapChoice::SwapColors));
-        assert(!game.isSwapDecisionPending());
-        assert(game.sideToMove() == Player::White);
     }
 
     {
@@ -286,30 +267,10 @@ int main() {
         assert(foundWinningMove);
         assert(result.nodes > 0);
 
-        ProofAnalysisConfig proofConfig;
-        proofConfig.maxDepth = 6;
-        proofConfig.maxNodes = 80000;
-        proofConfig.timeLimitMs = 500;
-        ProofAnalyzer analyzer(proofConfig);
-        const ProofAnalysisResult proof = analyzer.analyze(game, Player::Black);
-        assert(proof.outcome == ProofOutcome::ProvenWin);
-        assert(proof.bestMove.has_value());
-        const bool proofWinningMove = (*proof.bestMove == Move {7, 6}) || (*proof.bestMove == Move {7, 11});
-        assert(proofWinningMove);
-        assert(proof.nodes > 0);
-
         PositionAnnotation annotation;
         annotation.analysisPlayer = Player::Black;
-        annotation.proofOutcome = proof.outcome;
-        annotation.proofNodes = proof.nodes;
-        annotation.principalVariation = proof.principalVariation;
-        for (const ProofMoveSummary& rootMove : proof.rootMoves) {
-            if (rootMove.outcome == ProofOutcome::ProvenWin) {
-                annotation.provenWinningMoves.push_back(rootMove.move);
-            } else if (rootMove.outcome == ProofOutcome::ProvenLoss) {
-                annotation.provenLosingMoves.push_back(rootMove.move);
-            }
-        }
+        annotation.label = "threat_win";
+        annotation.principalVariation = {result.sequence.front().move};
 
         const std::string annotated = serializeAnnotatedPosition(game, annotation);
         GameState loadedAnnotated;
@@ -318,7 +279,7 @@ int main() {
         assert(deserializeAnnotatedPosition(annotated, loadedAnnotated, loadedAnnotation, annotationError));
         assert(loadedAnnotated.positionHash() == game.positionHash());
         assert(loadedAnnotation.analysisPlayer == annotation.analysisPlayer);
-        assert(loadedAnnotation.proofOutcome == annotation.proofOutcome);
+        assert(loadedAnnotation.label == annotation.label);
         assert(loadedAnnotation.principalVariation == annotation.principalVariation);
     }
 
@@ -369,18 +330,6 @@ int main() {
     }
 
     {
-        Match match({Ruleset::Swap16, ControllerKind::Human, ControllerKind::ClubAI});
-        assert(match.state().rules().swapOpening);
-        assert(match.seatToAct() == Seat::Opener);
-        assert(match.applyMove({7, 7}));
-        assert(match.applyMove({7, 8}));
-        assert(match.applyMove({8, 7}));
-        assert(match.seatToAct() == Seat::Chooser);
-        assert(match.applySwapChoice(SwapChoice::SwapColors));
-        assert(match.seatToAct() == Seat::Opener);
-    }
-
-    {
         Match match({Ruleset::Freestyle15, ControllerKind::Human, ControllerKind::ClubAI});
         assert(match.applyMove({7, 7}));
         match.stepAi();
@@ -428,8 +377,7 @@ int main() {
         assert(match.applyMove({0, 3}));
         match.stepAi();
         assert(match.state().isGameOver());
-        assert(match.lastProofAnalysis().has_value());
-        assert(match.lastProofAnalysis()->outcome == ProofOutcome::ProvenWin);
+        assert(match.lastSearchSummary().has_value());
     }
 
     {

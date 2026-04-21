@@ -9,25 +9,27 @@ namespace gomoku {
 namespace {
 
 int expertDepthFloorForTimeMs(int timeLimitMs) {
-    if (timeLimitMs >= 20000) {
-        return 24;
-    }
     if (timeLimitMs >= 10000) {
-        return 22;
+        return 50;
     }
     if (timeLimitMs >= 5000) {
-        return 20;
+        return 40;
     }
     if (timeLimitMs >= 2000) {
-        return 18;
+        return 30;
     }
     if (timeLimitMs >= 1000) {
-        return 16;
+        return 24;
     }
     if (timeLimitMs >= 500) {
-        return 14;
+        return 18;
     }
     return 12;
+}
+
+std::uint64_t expertNodeFloorForTimeMs(int timeLimitMs) {
+    const std::uint64_t base = static_cast<std::uint64_t>(timeLimitMs) * 1500ULL;
+    return base < 500'000ULL ? 500'000ULL : base;
 }
 
 }  // namespace
@@ -40,7 +42,7 @@ SearchResult ExpertAI::chooseMove(const GameState& state, Player player, SearchC
 
     config.timeLimitMs = std::max(config.timeLimitMs, 1);
     config.maxDepth = std::max(config.maxDepth, expertDepthFloorForTimeMs(config.timeLimitMs));
-    config.maxNodes = std::max<std::uint64_t>(config.maxNodes, 900000);
+    config.maxNodes = std::max(config.maxNodes, expertNodeFloorForTimeMs(config.timeLimitMs));
     config.softTimeLimitMs = std::min(config.timeLimitMs,
         std::max(config.softTimeLimitMs, std::max(1, config.timeLimitMs * 19 / 20)));
     config.maxCandidateMoves = std::max<std::size_t>(config.maxCandidateMoves, 28);

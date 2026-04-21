@@ -7,7 +7,6 @@ C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that 
 - Supported rulesets:
   - `freestyle15`
   - `standard15`
-  - `swap16`
 - Controllers:
   - `rookie`
   - `club`
@@ -76,12 +75,12 @@ CLI:
 CLI usage:
 
 ```text
-gomoku_cli [freestyle15|standard15|swap16] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]
+gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]
 ```
 
 ## GUI Controls
 
-- `1` / `2` / `3`: switch ruleset
+- `1` / `2`: switch ruleset
 - `O` / `P`: cycle opener / chooser controller
 - `[` / `]`: cycle AI move time
 - `Space`: toggle AI-vs-AI autoplay when both seats are AI

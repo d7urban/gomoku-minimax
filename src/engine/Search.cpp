@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <cstdint>
 #include <optional>
-#include <unordered_map>
 #include <vector>
 
 #include "gomoku/OpeningBook.hpp"
@@ -51,10 +50,48 @@ enum class BoundType : std::uint8_t {
 };
 
 struct TTEntry {
+    std::uint64_t hash {0};
     int depth {0};
     int score {0};
     BoundType bound {BoundType::Exact};
     std::optional<Move> bestMove;
+    bool occupied {false};
+};
+
+class TranspositionTable {
+public:
+    explicit TranspositionTable(std::size_t log2Size = 20)
+        : mask_((std::size_t{1} << log2Size) - 1)
+        , slots_(mask_ + 1) {
+    }
+
+    void clear() {
+        for (auto& slot : slots_) {
+            slot.occupied = false;
+            slot.bestMove.reset();
+        }
+    }
+
+    const TTEntry* find(std::uint64_t hash) const {
+        const TTEntry& slot = slots_[hash & mask_];
+        return slot.occupied && slot.hash == hash ? &slot : nullptr;
+    }
+
+    void store(std::uint64_t hash, int depth, int score, BoundType bound, std::optional<Move> bestMove) {
+        TTEntry& slot = slots_[hash & mask_];
+        if (!slot.occupied || slot.hash == hash || slot.depth <= depth) {
+            slot.hash = hash;
+            slot.depth = depth;
+            slot.score = score;
+            slot.bound = bound;
+            slot.bestMove = std::move(bestMove);
+            slot.occupied = true;
+        }
+    }
+
+private:
+    std::size_t mask_;
+    std::vector<TTEntry> slots_;
 };
 
 struct RootSearchResult {
@@ -95,33 +132,35 @@ struct VcfProbe {
     std::uint64_t nodeBudget {600};
     std::uint64_t nodes {0};
 
-    static int chebyshev(Move a, Move b) {
-        return std::max(std::abs(a.row - b.row), std::abs(a.col - b.col));
-    }
-
-    // Collect empty squares in the 9x9 neighborhood of `anchor` where `player`
-    // playing would form an immediate Five.
+    // Collect empty squares in the 9x9 (Chebyshev-4) neighborhood of
+    // `anchor` where `player` playing would form an immediate Five.
+    // Scans the bounded window directly instead of calling legalMoves()
+    // to avoid the per-call vector allocation.
     static std::vector<Move> fiveCompletions(const GameState& state, Player player, Move anchor) {
         std::vector<Move> completions;
-        for (const Move& m : state.legalMoves()) {
-            if (chebyshev(m, anchor) > 4) {
-                continue;
-            }
-            if (state.threatInfoAt(m, player).best == ThreatType::Five) {
-                completions.push_back(m);
+        const int size = state.boardSize();
+        const int rowMin = std::max(0, anchor.row - 4);
+        const int rowMax = std::min(size - 1, anchor.row + 4);
+        const int colMin = std::max(0, anchor.col - 4);
+        const int colMax = std::min(size - 1, anchor.col + 4);
+        for (int row = rowMin; row <= rowMax; ++row) {
+            for (int col = colMin; col <= colMax; ++col) {
+                if (state.cellAt(row, col) != Player::None) {
+                    continue;
+                }
+                if (state.threatInfoAt({row, col}, player).best == ThreatType::Five) {
+                    completions.push_back({row, col});
+                }
             }
         }
         return completions;
     }
 
-    // True if `player` has any move on the board that would form Five on its turn.
+    // True if `player` has any move on the board that would form Five on
+    // its turn. Delegates to the O(N) non-allocating hasThreatAtLeast
+    // instead of calling legalMoves() which allocates a ~200-entry vector.
     static bool hasFiveCreation(const GameState& state, Player player) {
-        for (const Move& m : state.legalMoves()) {
-            if (state.threatInfoAt(m, player).best == ThreatType::Five) {
-                return true;
-            }
-        }
-        return false;
+        return state.hasThreatAtLeast(player, ThreatType::Five);
     }
 
     // Returns true if `attacker` (to move) can force a Five in <= depthRemaining
@@ -169,8 +208,10 @@ struct VcfProbe {
             }
 
             // Defender may have a Five-creating move of their own — in that case
-            // they just play it and win before our follow-up.
-            if (hasFiveCreation(state, defender)) {
+            // they just play it and win before our follow-up. An OpenFour is
+            // equally decisive: the defender completes it on their next move
+            // regardless of any block, so the VCF cannot succeed.
+            if (hasFiveCreation(state, defender) || state.hasThreatAtLeast(defender, ThreatType::OpenFour)) {
                 state.undo();
                 continue;
             }
@@ -194,9 +235,9 @@ struct VcfProbe {
                 continue;
             }
 
-            // If the forced block also creates a Five-threat for defender, we
-            // must defend instead of continuing the VCF attack — abort branch.
-            if (hasFiveCreation(state, defender)) {
+            // If the forced block also creates a Five-threat or OpenFour for the
+            // defender, the VCF cannot succeed — abort this branch.
+            if (hasFiveCreation(state, defender) || state.hasThreatAtLeast(defender, ThreatType::OpenFour)) {
                 state.undo();
                 state.undo();
                 continue;
@@ -227,6 +268,7 @@ public:
         historyScores_.assign(16U * 16U, 0);
         killerMoves_.assign(static_cast<std::size_t>(std::max(config_.maxDepth + 8, kMaxSearchPly)), {});
         counterMoves_.assign(16U * 16U, std::nullopt);
+        defensiveBlockingMoves_.clear();
 
         if (config_.useOpeningBook) {
             if (const auto bookHit = lookupOpeningBookMove(state)) {
@@ -241,7 +283,7 @@ public:
             }
         }
 
-        if (shouldRunRootThreatSearch(state)) {
+        if (config_.useRootThreatSearch && shouldRunRootThreatSearch(state)) {
             ThreatSequenceConfig threatConfig;
             threatConfig.maxDepth = std::max(2, config_.maxDepth + 2);
             threatConfig.maxNodes = std::max<std::uint64_t>(1000, config_.maxNodes / 3);
@@ -264,6 +306,29 @@ public:
                     result.summary.principalVariation.push_back(step.move);
                 }
                 return finalizeResult(std::move(result));
+            }
+
+            // Defensive threat search: check if the opponent has a forced
+            // winning sequence. If so, mark the critical blocking moves
+            // so the search prioritises them.
+            const Player opponent = otherPlayer(state.sideToMove());
+            ThreatSequenceConfig defConfig;
+            defConfig.maxDepth = std::max(2, config_.maxDepth);
+            defConfig.maxNodes = std::max<std::uint64_t>(500, config_.maxNodes / 6);
+            defConfig.timeLimitMs = hardTimeLimitMs() > 0 ? std::max(5, hardTimeLimitMs() / 8) : 0;
+            defConfig.maxThreatMoves = std::max<std::size_t>(4, config_.maxCandidateMoves / 2);
+
+            ThreatSequenceSearcher defSearcher(defConfig);
+            ThreatSearchResult defResult = defSearcher.searchWinningSequence(state, opponent);
+            result.summary.threatNodes += defResult.nodes;
+            if (defResult.foundWin && !defResult.sequence.empty()) {
+                defensiveBlockingMoves_.clear();
+                for (const ThreatStep& step : defResult.sequence) {
+                    defensiveBlockingMoves_.push_back(step.move);
+                    for (const Move& defense : step.defenseMoves) {
+                        defensiveBlockingMoves_.push_back(defense);
+                    }
+                }
             }
         }
 
@@ -382,10 +447,11 @@ private:
     std::optional<Move> lastIterationBestMove_ {};
     int  stableIterationCount_ {0};
     bool bestMoveChangedLastIter_ {false};
-    std::unordered_map<std::uint64_t, TTEntry> tt_;
+    TranspositionTable tt_;
     std::vector<std::array<std::optional<Move>, 2>> killerMoves_;
     std::vector<int> historyScores_;
     std::vector<std::optional<Move>> counterMoves_;
+    std::vector<Move> defensiveBlockingMoves_;
 
     SearchResult finalizeResult(SearchResult result) const {
         result.summary.nodes = nodes_;
@@ -529,7 +595,7 @@ private:
         return true;
     }
 
-    // When the opponent already has a forcing threat on the board, prune the
+// When the opponent already has a forcing threat on the board, prune the
     // candidate list to moves that either neutralise the threat or create an
     // equally-fast counter-attack. Mirrors PentaZen's generate<DEFEND_B4>
     // and generate<DEFEND_F3> stages — large node reduction and also a
@@ -544,15 +610,7 @@ private:
             return candidates;
         }
 
-        // Classify the opponent's best on-board threat. Anything at or above
-        // SimpleFour means the opponent is one ply from forming Five, so only
-        // our own Five counts as a counter — a four of our own doesn't win the
-        // tempo race. At OpenThree level, a counter-four forces the opponent
-        // to abandon their extension and defend instead.
         const bool opponentFourOnBoard = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour);
-        const ThreatType counterThreshold = opponentFourOnBoard
-            ? ThreatType::Five
-            : ThreatType::SimpleFour;
 
         // Defender squares are the opponent's own extension points: cells
         // where *they* playing would jump to OpenFour/Five. Occupying those
@@ -560,8 +618,15 @@ private:
         std::vector<Move> defenderSquares;
         defenderSquares.reserve(candidates.size());
         for (const CandidateMove& candidate : candidates) {
-            const ThreatType opponentThreatHere = state.threatInfoAt(candidate.move, opponent).best;
-            if (threatSeverity(opponentThreatHere) >= threatSeverity(ThreatType::OpenFour)) {
+            const MoveThreatInfo opponentThreatHere = state.threatInfoAt(candidate.move, opponent);
+            if (threatSeverity(opponentThreatHere.best) >= threatSeverity(ThreatType::OpenFour)) {
+                defenderSquares.push_back(candidate.move);
+            }
+            // A cell where the opponent would create a double-threat fork
+            // (e.g. two simultaneous OpenThree threats = 3-3 fork) is
+            // equally critical to block. threatSeverityEnhanced >= 600
+            // covers OpenThree+OpenThree forks and higher combinations.
+            if (threatSeverityEnhanced(opponentThreatHere) >= 600) {
                 defenderSquares.push_back(candidate.move);
             }
         }
@@ -570,17 +635,15 @@ private:
         filtered.reserve(candidates.size());
         for (const CandidateMove& candidate : candidates) {
             const bool defends = std::find(defenderSquares.begin(), defenderSquares.end(), candidate.move) != defenderSquares.end();
-            const bool counters = threatSeverity(candidate.threatInfo.best) >= threatSeverity(counterThreshold);
+            const bool counters = isDefensiveCounterMove(candidate.threatInfo, opponentFourOnBoard);
             if (defends || counters) {
                 filtered.push_back(candidate);
             }
         }
 
-        // If nothing survives (defender squares pruned out by earlier filters
-        // and no in-range counter), fall back to the full candidate list so
-        // the search still has moves to consider.
         return filtered.empty() ? candidates : filtered;
     }
+
 
     std::vector<CandidateMove> generateOrderedCandidates(const GameState& state, int ply, std::optional<Move> preferredMove = std::nullopt) {
         auto candidates = StaticEvaluator::generateCandidateMoves(state, state.sideToMove(), candidateBudget(state));
@@ -591,8 +654,8 @@ private:
         candidates = applyDefensiveFilter(state, std::move(candidates));
 
         std::optional<Move> ttBestMove;
-        if (const auto found = tt_.find(state.positionHash()); found != tt_.end()) {
-            ttBestMove = found->second.bestMove;
+        if (const TTEntry* found = tt_.find(state.positionHash())) {
+            ttBestMove = found->bestMove;
         }
 
         const std::optional<Move> firstKiller = ply < static_cast<int>(killerMoves_.size()) ? killerMoves_[static_cast<std::size_t>(ply)][0] : std::nullopt;
@@ -651,6 +714,12 @@ private:
                 return leftHistory > rightHistory;
             }
 
+            const bool leftDefBlock = std::find(defensiveBlockingMoves_.begin(), defensiveBlockingMoves_.end(), left.move) != defensiveBlockingMoves_.end();
+            const bool rightDefBlock = std::find(defensiveBlockingMoves_.begin(), defensiveBlockingMoves_.end(), right.move) != defensiveBlockingMoves_.end();
+            if (leftDefBlock != rightDefBlock) {
+                return leftDefBlock;
+            }
+
             return left.score > right.score;
         });
 
@@ -672,17 +741,25 @@ private:
         const int originalAlpha = alpha;
 
         // Forced-four defense extension at the root (see negamax for detail).
+        // Check-style attack extension also applies at root.
         const Player rootOpponent = otherPlayer(state.sideToMove());
-        constexpr int kRootExtensionBudget = 8;
+        constexpr int kRootExtensionBudget = 12;
         const bool rootExtensionAllowed = depth < (rootIterationDepth_ + kRootExtensionBudget);
         const int forcedDefenseExtension = (rootExtensionAllowed
             && state.hasThreatAtLeast(rootOpponent, ThreatType::SimpleFour)) ? 1 : 0;
-        const int childDepth = depth - 1 + forcedDefenseExtension;
 
         for (std::size_t index = 0; index < candidates.size(); ++index) {
+            const ThreatType attackThreat = candidates[index].threatInfo.best;
             if (!state.applyMove(candidates[index].move)) {
                 continue;
             }
+
+            int checkExtension = 0;
+            if (rootExtensionAllowed
+                && threatSeverity(attackThreat) >= threatSeverity(ThreatType::SimpleFour)) {
+                checkExtension = 1;
+            }
+            const int childDepth = depth - 1 + forcedDefenseExtension + checkExtension;
 
             searchedAnyChild = true;
             int score = 0;
@@ -720,18 +797,13 @@ private:
         result.bestMove = bestMove;
         result.score = bestScore;
 
-        TTEntry entry;
-        entry.depth = depth;
-        entry.score = scoreToTT(bestScore, 0);
-        entry.bestMove = bestMove;
+        BoundType rootBound = BoundType::Exact;
         if (bestScore <= originalAlpha) {
-            entry.bound = BoundType::Upper;
+            rootBound = BoundType::Upper;
         } else if (bestScore >= beta) {
-            entry.bound = BoundType::Lower;
-        } else {
-            entry.bound = BoundType::Exact;
+            rootBound = BoundType::Lower;
         }
-        tt_[state.positionHash()] = entry;
+        tt_.store(state.positionHash(), depth, scoreToTT(bestScore, 0), rootBound, bestMove);
         return result;
     }
 
@@ -743,7 +815,12 @@ private:
                     std::size_t index,
                     ThreatType attackThreat,
                     ThreatType blockThreat,
-                    int extension) {
+                    int extension,
+                    bool checkExtensionAllowed) {
+        if (checkExtensionAllowed
+            && threatSeverity(attackThreat) >= threatSeverity(ThreatType::SimpleFour)) {
+            extension += 1;
+        }
         const int childDepth = depth - 1 + extension;
         if (index == 0) {
             return -negamax(child, childDepth, -beta, -alpha, ply + 1, true);
@@ -804,14 +881,13 @@ private:
         }
 
         const std::uint64_t key = state.positionHash();
-        if (const auto found = tt_.find(key); found != tt_.end() && found->second.depth >= depth) {
+        if (const TTEntry* found = tt_.find(key); found != nullptr && found->depth >= depth) {
             ++ttHits_;
-            const TTEntry& entry = found->second;
-            const int ttScore = scoreFromTT(entry.score, ply);
-            if (entry.bound == BoundType::Exact) {
+            const int ttScore = scoreFromTT(found->score, ply);
+            if (found->bound == BoundType::Exact) {
                 return ttScore;
             }
-            if (entry.bound == BoundType::Lower) {
+            if (found->bound == BoundType::Lower) {
                 alpha = std::max(alpha, ttScore);
             } else {
                 beta = std::min(beta, ttScore);
@@ -824,7 +900,6 @@ private:
         if (depth == 0) {
             if (config_.useVcfAtLeaves && !state.isGameOver()) {
                 const Player attacker = state.sideToMove();
-                // Cheap gate: only probe when there's already four-making potential.
                 if (state.hasThreatAtLeast(attacker, ThreatType::BrokenThree)) {
                     VcfProbe probe;
                     probe.nodeBudget = config_.vcfNodeBudget;
@@ -881,7 +956,18 @@ private:
                 return 0;
             }
             if (nullScore >= beta) {
-                return nullScore;
+                if (nullScore >= kMateThreshold) {
+                    // Do not trust mate scores from null-move: the "free move"
+                    // given to the opponent means mate-distance is unreliable.
+                    // Verify with a shallow re-search instead.
+                    const int verifyDepth = std::max(1, depth - 1 - reduction);
+                    const int verifyScore = -negamax(state, verifyDepth, -beta, -beta + 1, ply, true);
+                    if (completedDepth_ && verifyScore >= beta) {
+                        return verifyScore;
+                    }
+                } else {
+                    return nullScore;
+                }
             }
         }
 
@@ -890,7 +976,7 @@ private:
         // a real ordering seed from the TT when the full-depth search starts.
         if (depth >= 7 && beta - alpha > 1) {
             bool haveTtMove = false;
-            if (const auto found = tt_.find(key); found != tt_.end() && found->second.bestMove.has_value()) {
+            if (const TTEntry* found = tt_.find(key); found != nullptr && found->bestMove.has_value()) {
                 haveTtMove = true;
             }
             if (!haveTtMove) {
@@ -909,10 +995,14 @@ private:
         // Forced-four defense extension: if the opponent is threatening a
         // SimpleFour/OpenFour at this position, every child is either a
         // forced defense or an immediate loss — extend search by +1 so the
-        // horizon doesn't fall inside the forced sequence. Cap total
-        // extensions along a path so mutual forced-four chains can't push
-        // past the root iteration depth without bound.
-        constexpr int kExtensionBudget = 8;
+        // horizon doesn't fall inside the forced sequence.
+        // Check-style attack extension: if the side to move created an
+        // OpenThree+ threat with their last move (captured in the child's
+        // attackThreat), the opponent is forced to respond — similarly
+        // extend so the forced continuation isn't lost at the horizon.
+        // Cap total extensions along a path so mutual forcing chains
+        // can't push past the root iteration depth without bound.
+        constexpr int kExtensionBudget = 12;
         const bool extensionAllowed = (ply + depth) < (rootIterationDepth_ + kExtensionBudget);
         const int forcedDefenseExtension = (extensionAllowed
             && state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) ? 1 : 0;
@@ -928,7 +1018,7 @@ private:
                 continue;
             }
 
-            const int score = searchChild(state, depth, alpha, beta, ply, index, attackThreat, blockThreat, forcedDefenseExtension);
+            const int score = searchChild(state, depth, alpha, beta, ply, index, attackThreat, blockThreat, forcedDefenseExtension, extensionAllowed);
             state.undo();
             if (!completedDepth_) {
                 return 0;
@@ -949,18 +1039,13 @@ private:
             return staticEval;
         }
 
-        TTEntry entry;
-        entry.depth = depth;
-        entry.score = scoreToTT(bestScore, ply);
-        entry.bestMove = bestMove;
+        BoundType nodeBound = BoundType::Exact;
         if (bestScore <= originalAlpha) {
-            entry.bound = BoundType::Upper;
+            nodeBound = BoundType::Upper;
         } else if (bestScore >= beta) {
-            entry.bound = BoundType::Lower;
-        } else {
-            entry.bound = BoundType::Exact;
+            nodeBound = BoundType::Lower;
         }
-        tt_[key] = entry;
+        tt_.store(key, depth, scoreToTT(bestScore, ply), nodeBound, bestMove);
         return bestScore;
     }
 
@@ -975,12 +1060,12 @@ private:
         pv.push_back(firstMove);
 
         for (int remaining = depth - 1; remaining > 0; --remaining) {
-            const auto found = tt_.find(line.positionHash());
-            if (found == tt_.end() || !found->second.bestMove.has_value()) {
+            const TTEntry* found = tt_.find(line.positionHash());
+            if (found == nullptr || !found->bestMove.has_value()) {
                 break;
             }
 
-            const Move move = *found->second.bestMove;
+            const Move move = *found->bestMove;
             if (!line.applyMove(move)) {
                 break;
             }
@@ -995,6 +1080,15 @@ private:
 };
 
 }  // namespace
+
+bool isDefensiveCounterMove(const MoveThreatInfo& info, bool opponentFourOnBoard) {
+    if (opponentFourOnBoard) {
+        return threatSeverity(info.best) >= threatSeverity(ThreatType::Five);
+    }
+
+    return threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)
+        || threatSeverityEnhanced(info) >= 600;
+}
 
 SearchEngine::SearchEngine(SearchConfig config)
     : config_(config) {

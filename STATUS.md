@@ -23,7 +23,7 @@ Last updated: 2026-04-17
 - Language/build: C++20 + CMake
 - UI direction: SFML
 - Engine/UI split: headless `engine/` plus graphical `ui/`
-- Supported rulesets: 15x15 free-style, 15x15 standard, 16x16 swap-rule mode
+- Supported rulesets: 15x15 free-style, 15x15 standard
 - Engine roadmap: heuristic -> alpha-beta -> threat search -> PVS -> proof-assisted analysis
 
 ## Completed Work Log
@@ -73,7 +73,7 @@ Last updated: 2026-04-17
 | Core board state representation | done | `GameState` supports board storage, move history, and swap-opening state. |
 | Legal move generation | done | Legal move enumeration implemented for all supported rulesets. |
 | Win/draw detection | done | Free-style, exact-five, and draw detection verified in smoke tests. |
-| Ruleset switching | done | 15x15 free-style, 15x15 standard, and 16x16 swap-rule modes supported. |
+| Ruleset switching | done | 15x15 free-style and 15x15 standard modes supported. Swap-rule code preserved but no active ruleset. |
 | Game serialization/replay logging | done | Replay export/import implemented as action logs. |
 | First graphical board UI | done | Basic SFML board, stone rendering, hotkeys, and status pane implemented. |
 | Mouse input/hover interaction | done | Click-to-place move input implemented in the UI. |

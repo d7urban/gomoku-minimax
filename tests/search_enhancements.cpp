@@ -52,11 +52,10 @@ void testThreatSeverityEnhanced() {
     assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::OpenThree)) == 600);
     assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::BrokenThree)) == 400);
 
-    // Fallback: baseScore + second/4.
-    const int baseSimpleFour = threatSeverity(ThreatType::SimpleFour);
-    assert(threatSeverityEnhanced(make(ThreatType::SimpleFour)) == baseSimpleFour);
+    // SimpleFour: forcing threats get a base of 700, above double-OpenThree (600).
+    assert(threatSeverityEnhanced(make(ThreatType::SimpleFour)) == 700);
     assert(threatSeverityEnhanced(make(ThreatType::SimpleFour, ThreatType::BrokenThree))
-        == baseSimpleFour + threatSeverity(ThreatType::BrokenThree) / 4);
+        == 700 + threatSeverity(ThreatType::BrokenThree) / 4);
 
     // A double-threat outranks the same best-threat with a weaker secondary.
     assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::OpenThree))
@@ -68,12 +67,9 @@ void testThreatSeverityEnhanced() {
 
     // A pure four without follow-up still outranks a bare open-three.
     // (ordering sanity that matters for the move sort)
-    // NOTE: this is the *documented* weakness: SimpleFour+None returns a
-    // small number; OpenThree+OpenThree returns 600. The function trades
-    // absolute severity for combination awareness. This test pins that
-    // behavior intentionally.
-    assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::OpenThree))
-        > threatSeverityEnhanced(make(ThreatType::SimpleFour)));
+    // A simple-four (forcing) outranks a double open-three (not yet forcing).
+    assert(threatSeverityEnhanced(make(ThreatType::SimpleFour))
+        > threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::OpenThree)));
 }
 
 void testSearchHandlesDeepQuietPosition() {
@@ -127,11 +123,12 @@ void testSearchFindsOpenFourResponse() {
     assert(blocksLeftEnd || blocksRightEnd || chebyshev <= 3);
 }
 
-void testVcfLeafFindsOpenFourMate() {
+void testShallowSearchFindsOpenFourMate() {
     // Black has three-in-a-row on row 7 and it is Black's turn. Playing
-    // {7, 4} makes an open four; White can only block one end, and Black
-    // wins the next turn. The VCF-at-leaf probe must find this even with
-    // a tiny main-search depth so the score reports a mate.
+    // either endpoint extends to an open four; White can only block one
+    // end, and Black wins the next turn. Even at depth 1 the search must
+    // still report a mate, regardless of whether the proof comes from the
+    // leaf VCF probe or a forcing-sequence extension.
     GameState game = makeGame({
         {7, 5}, {0, 0},
         {7, 6}, {0, 1},
@@ -145,14 +142,15 @@ void testVcfLeafFindsOpenFourMate() {
     config.maxDepth = 1;
     config.maxNodes = 50'000;
     config.timeLimitMs = 1000;
+    config.useRootThreatSearch = false;
     config.useOpeningBook = false;
     config.useVcfAtLeaves = true;
 
     SearchEngine engine(config);
     const SearchResult result = engine.search(game);
     assert(result.bestMove.has_value());
+    assert(*result.bestMove == (Move{7, 4}) || *result.bestMove == (Move{7, 8}));
     assert(result.summary.score >= 1'000'000);
-    assert(result.summary.vcfHits >= 1);
 }
 
 void testForcingFilterPicksUniqueSimpleFourBlock() {
@@ -179,9 +177,10 @@ void testForcingFilterPicksUniqueSimpleFourBlock() {
     assert(*result.bestMove == (Move{7, 4}));
 }
 
-void testVcfLeafDisabledFallsBackToEval() {
-    // Same position as above, but with the VCF probe switched off: at
-    // depth 1 without deeper search there is no mate score yet.
+void testVcfLeafDisabledLeavesOtherMatePathsAvailable() {
+    // Same position as above, but with the VCF probe switched off. The
+    // score can still reach mate through other forcing-search machinery;
+    // what matters here is that the VCF counter stays at zero.
     GameState game = makeGame({
         {7, 5}, {0, 0},
         {7, 6}, {0, 1},
@@ -193,14 +192,16 @@ void testVcfLeafDisabledFallsBackToEval() {
     config.maxDepth = 1;
     config.maxNodes = 50'000;
     config.timeLimitMs = 1000;
+    config.useRootThreatSearch = false;
     config.useOpeningBook = false;
     config.useVcfAtLeaves = false;
 
     SearchEngine engine(config);
     const SearchResult result = engine.search(game);
     assert(result.bestMove.has_value());
+    assert(*result.bestMove == (Move{7, 4}) || *result.bestMove == (Move{7, 8}));
     assert(result.summary.vcfHits == 0);
-    assert(result.summary.score < 1'000'000);
+    assert(result.summary.score >= 1'000'000);
 }
 
 void testForcedFourExtensionTerminates() {
@@ -233,15 +234,40 @@ void testForcedFourExtensionTerminates() {
     assert(result.summary.depthReached >= 4);
 }
 
+void testDefensiveFilterKeepsDoubleOpenThreeCounter() {
+    // Regression: White can answer Black's forcing pressure with h11, which
+    // creates an OpenThree+OpenThree fork. The defensive filter used to drop
+    // that move because its primary threat is still only OpenThree.
+    GameState game = makeGame({
+        {4, 10}, {9, 8},
+        {4, 5}, {6, 4},
+        {6, 8}, {8, 6},
+        {9, 4}, {8, 9},
+        {5, 8}, {10, 8},
+        {4, 4}, {10, 6},
+        {4, 9},
+    });
+    assert(game.sideToMove() == Player::White);
+    assert(game.hasThreatAtLeast(Player::Black, ThreatType::OpenThree));
+    assert(!game.hasThreatAtLeast(Player::Black, ThreatType::SimpleFour));
+
+    const MoveThreatInfo counter = game.threatInfoAt({10, 7}, Player::White);
+    assert(counter.best == ThreatType::OpenThree);
+    assert(counter.second == ThreatType::OpenThree);
+    assert(isDefensiveCounterMove(counter, false));
+    assert(!isDefensiveCounterMove(counter, true));
+}
+
 }  // namespace
 
 int main() {
     testThreatSeverityEnhanced();
     testSearchHandlesDeepQuietPosition();
     testSearchFindsOpenFourResponse();
-    testVcfLeafFindsOpenFourMate();
-    testVcfLeafDisabledFallsBackToEval();
+    testShallowSearchFindsOpenFourMate();
+    testVcfLeafDisabledLeavesOtherMatePathsAvailable();
     testForcingFilterPicksUniqueSimpleFourBlock();
     testForcedFourExtensionTerminates();
+    testDefensiveFilterKeepsDoubleOpenThreeCounter();
     return 0;
 }
