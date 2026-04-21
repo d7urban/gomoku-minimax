@@ -1,6 +1,6 @@
 # gomoku-minimax
 
-C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that grows from a simple heuristic bot into a proof-assisted analysis tool.
+C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that grows from a simple heuristic bot into a stronger threat-aware searcher.
 
 ## Features
 
@@ -22,27 +22,28 @@ C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that 
   - transposition table
   - tactical threat-sequence search
   - opening book
-  - proof-assisted tactical analysis
+  - time-governed iterative deepening
 - Tooling:
   - self-play runner
   - search benchmark runner
-  - proof benchmark runner
   - opening-book dump tool
+  - Gomocup protocol adapter
+  - tournament runner
 
 ## Build
 
-Headless build:
+Default build:
 
 ```bash
 cmake -S . -B build
 cmake --build build
 ```
 
-SFML GUI build:
+Headless-only build:
 
 ```bash
-cmake -S . -B build-sfml -DGOMOKU_BUILD_SFML_UI=ON
-cmake --build build-sfml
+cmake -S . -B build -DGOMOKU_BUILD_SFML_UI=OFF
+cmake --build build
 ```
 
 Quick GUI launcher:
@@ -55,14 +56,14 @@ Quick GUI launcher:
 
 - CMake 3.20+
 - C++20 compiler
-- SFML 2.5+ to build `gomoku_ui`
+- SFML 2.5+ if you want `gomoku_ui`
 
 ## Running
 
 GUI:
 
 ```bash
-./build-sfml/gomoku_ui
+./build/gomoku_ui
 ```
 
 CLI:
@@ -78,11 +79,13 @@ CLI usage:
 gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]
 ```
 
+`analyst` currently uses the same move selection path as `expert`.
+
 ## GUI Controls
 
 - `1` / `2`: switch ruleset
 - `O` / `P`: cycle opener / chooser controller
-- `[` / `]`: cycle AI move time
+- `[` / `]` or `,` / `.`: cycle AI move time
 - `Space`: toggle AI-vs-AI autoplay when both seats are AI
 - `R`: restart
 - `U`: undo
@@ -90,14 +93,8 @@ gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|a
 - `T`: threat labels
 - `C`: top-candidate markers
 - `A`: analyze threats
-- `F`: analyze proof
-- `X`: save annotated analysis position
-- `L`: load annotated analysis position
-- `Left` / `Right`: step through a threat line
 - `Esc`: clear analysis overlays
 - `K` / `S`: keep or swap colors when a swap decision is pending
-
-Saved proof-analysis positions are written to `gomoku_analysis_position.txt` in the project directory.
 
 ## Tools
 
@@ -113,17 +110,22 @@ Search benchmark:
 ./build/gomoku_bench expert 500
 ```
 
-Proof benchmark:
-
-```bash
-./build/gomoku_proof_bench 500
-./run_proof_bench.sh 500
-```
-
 Opening book dump:
 
 ```bash
 ./build/gomoku_book
+```
+
+Gomocup adapter:
+
+```bash
+./build/gomoku_gomocup --controller expert
+```
+
+Tournament runner:
+
+```bash
+./build/gomoku_tournament ./build/gomoku_gomocup ./build/gomoku_gomocup
 ```
 
 ## Tests
@@ -131,8 +133,14 @@ Opening book dump:
 Build and run the regression targets:
 
 ```bash
-cmake --build build --target gomoku_smoke gomoku_tactical_regressions
-ctest --test-dir build --output-on-failure -R "gomoku_smoke|gomoku_tactical_regressions"
+cmake --build build --target \
+  gomoku_smoke \
+  gomoku_tactical_regressions \
+  gomoku_search_enhancements \
+  gomoku_seeded_regressions \
+  gomoku_time_governor
+
+ctest --test-dir build --output-on-failure
 ```
 
 ## Project Layout
@@ -148,4 +156,4 @@ ctest --test-dir build --output-on-failure -R "gomoku_smoke|gomoku_tactical_regr
 
 ## Current State
 
-The project is currently through Checkpoint 5 of the roadmap: playable game, multiple AI levels, tactical threat analysis, tournament-style search improvements, and proof-assisted analysis mode.
+The project is currently through Checkpoint 5 of the roadmap: playable game, multiple AI levels, tactical threat analysis, opening-book support, tournament-style search improvements, and time-governed search.
