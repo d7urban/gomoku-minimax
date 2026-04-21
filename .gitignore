@@ -7,6 +7,8 @@ gomoku_analysis_position.txt
 baselines/*/gomoku_gomocup
 baselines/*/gomoku_tournament
 .claude/
+.codex
 threat_combinations_test
 tournaments/runs/
 Searching for solutions in games and artificial intelligence.pdf
+CODE_REVIEW.txt
