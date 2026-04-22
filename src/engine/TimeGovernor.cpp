@@ -125,6 +125,10 @@ std::optional<MoveBudget> TimeGovernor::computeBaselineBudget(
     budget.bestMoveUnstableScale  = cfg.bestMoveUnstableScale;
     budget.bestMoveStableScale    = cfg.bestMoveStableScale;
     budget.stableIterationsNeeded = cfg.stableIterationsNeeded;
+    budget.nextIterUnstableScale = cfg.nextIterUnstableScale;
+    budget.nextIterStableScale = cfg.nextIterStableScale;
+    budget.scoreSwingThreshold = cfg.scoreSwingThreshold;
+    budget.scoreSwingUnstableScale = cfg.scoreSwingUnstableScale;
     return budget;
 }
 

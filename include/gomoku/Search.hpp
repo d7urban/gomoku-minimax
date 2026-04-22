@@ -26,6 +26,8 @@ struct SearchConfig {
     bool useRootThreatSearch {true};
     bool useOpeningBook {false};
     bool useVcfAtLeaves {true};
+    bool useWinVerificationResearch {true};
+    int maxRootThreads {0};
     int vcfMaxDepth {10};
     std::uint64_t vcfNodeBudget {600};
     // Per-call snapshot of the match clock. Transitional home; the
@@ -45,7 +47,9 @@ struct SearchSummary {
     std::uint64_t ttHits {0};
     std::uint64_t threatNodes {0};
     std::uint64_t vcfNodes {0};
+    std::uint64_t winVerificationNodes {0};
     int vcfHits {0};
+    int winVerifications {0};
     int rootCandidateCount {0};
     int threatSequenceLength {0};
     bool completedLastDepth {false};

@@ -6,6 +6,7 @@
 #include "gomoku/GameState.hpp"
 #include "gomoku/Rules.hpp"
 #include "gomoku/Search.hpp"
+#include "gomoku/TacticalAI.hpp"
 #include "gomoku/ThreatTypes.hpp"
 #include "gomoku/Threats.hpp"
 
@@ -176,6 +177,33 @@ void testShallowSearchFindsOpenFourMate() {
     assert(result.bestMove.has_value());
     assert(*result.bestMove == (Move{7, 4}) || *result.bestMove == (Move{7, 8}));
     assert(result.summary.score >= 1'000'000);
+}
+
+void testWinningMateGetsCautiousVerification() {
+    GameState game = makeGame({
+        {7, 5}, {0, 0},
+        {7, 6}, {0, 1},
+        {7, 7},
+    });
+    game.setSideToMoveForAnalysis(Player::Black);
+
+    SearchConfig config;
+    config.maxDepth = 2;
+    config.maxNodes = 100'000;
+    config.timeLimitMs = 1000;
+    config.useRootThreatSearch = false;
+    config.useOpeningBook = false;
+    config.useVcfAtLeaves = true;
+    config.useWinVerificationResearch = true;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(*result.bestMove == (Move{7, 4}) || *result.bestMove == (Move{7, 8}));
+    assert(result.summary.score >= 1'000'000);
+    assert(result.summary.winVerifications > 0);
+    assert(result.summary.winVerificationNodes > 0);
+    assertPrincipalVariationLegal(game, result);
 }
 
 void testForcingFilterPicksUniqueSimpleFourBlock() {
@@ -354,6 +382,29 @@ void testInterruptedSearchReportsMaxVisitedDepth() {
     assert(result.summary.nodes <= config.maxNodes);
 }
 
+void testQuietSearchSkipsWinVerification() {
+    GameState game = makeGame({
+        {7, 7}, {0, 0},
+        {12, 12}, {0, 1},
+        {10, 10}, {1, 0},
+    });
+
+    SearchConfig config;
+    config.maxDepth = 1;
+    config.maxNodes = 20'000;
+    config.timeLimitMs = 200;
+    config.maxCandidateMoves = 16;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+    config.useWinVerificationResearch = true;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.winVerifications == 0);
+    assert(result.summary.winVerificationNodes == 0);
+}
+
 void testTranspositionTablePersistsAcrossSearchCalls() {
     GameState game = makeGame({
         {7, 7}, {7, 8},
@@ -443,6 +494,60 @@ void testTranspositionTablePollutionDoesNotCorruptPrincipalVariation() {
     assertPrincipalVariationLegal(target, targetResult);
 }
 
+void testParallelRootSearchMatchesSerialBestMove() {
+    GameState game = makeGame({
+        {7, 7}, {7, 8},
+        {8, 7}, {6, 6},
+        {6, 8}, {8, 8},
+        {9, 7}, {5, 5},
+    });
+
+    SearchConfig serialConfig;
+    serialConfig.maxDepth = 5;
+    serialConfig.maxNodes = 300'000;
+    serialConfig.timeLimitMs = 1000;
+    serialConfig.maxCandidateMoves = 16;
+    serialConfig.useOpeningBook = false;
+    serialConfig.useRootThreatSearch = false;
+    serialConfig.maxRootThreads = 1;
+
+    SearchConfig parallelConfig = serialConfig;
+    parallelConfig.maxRootThreads = 4;
+
+    SearchEngine serialEngine(serialConfig);
+    const SearchResult serial = serialEngine.search(game);
+    assert(serial.bestMove.has_value());
+    assertPrincipalVariationLegal(game, serial);
+
+    SearchEngine parallelEngine(parallelConfig);
+    const SearchResult parallel = parallelEngine.search(game);
+    assert(parallel.bestMove.has_value());
+    assert(*parallel.bestMove == *serial.bestMove);
+    assertPrincipalVariationLegal(game, parallel);
+}
+
+void testSearchDoesNotReturnEmptyOnTournamentCrossPattern() {
+    GameState game = makeGame({
+        {7, 7}, {7, 8},
+        {8, 7}, {6, 7},
+    });
+    assert(game.sideToMove() == Player::Black);
+
+    SearchConfig config;
+    config.maxDepth = 10;
+    config.maxNodes = 180'000;
+    config.timeLimitMs = 500;
+    config.maxCandidateMoves = 20;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = true;
+
+    const SearchResult result = gomoku::TacticalAI::chooseMove(game, Player::Black, config);
+    assert(result.bestMove.has_value());
+
+    GameState trial = game;
+    assert(trial.applyMove(*result.bestMove));
+}
+
 void testVcfRootGeneratorIgnoresQuietNoise() {
     GameState game = makeGame({
         {7, 5}, {0, 0},
@@ -476,6 +581,7 @@ int main() {
     testSearchHandlesDeepQuietPosition();
     testSearchFindsOpenFourResponse();
     testShallowSearchFindsOpenFourMate();
+    testWinningMateGetsCautiousVerification();
     testVcfLeafDisabledLeavesOtherMatePathsAvailable();
     testForcingFilterPicksUniqueSimpleFourBlock();
     testUniqueImmediateBlockShortCircuitsSearch();
@@ -483,9 +589,12 @@ int main() {
     testForcedFourExtensionTerminates();
     testDefensiveFilterKeepsDoubleOpenThreeCounter();
     testInterruptedSearchReportsMaxVisitedDepth();
+    testQuietSearchSkipsWinVerification();
     testTranspositionTablePersistsAcrossSearchCalls();
     testTranspositionTableReusesParentSubtreeAcrossPlayedMove();
     testTranspositionTablePollutionDoesNotCorruptPrincipalVariation();
+    testParallelRootSearchMatchesSerialBestMove();
+    testSearchDoesNotReturnEmptyOnTournamentCrossPattern();
     testVcfRootGeneratorIgnoresQuietNoise();
     return 0;
 }

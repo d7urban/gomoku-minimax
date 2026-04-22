@@ -19,9 +19,13 @@ Threat-aware C++20 Gomoku engine with an SFML GUI, CLI tools, opening book suppo
   - threat-aware static evaluation
   - alpha-beta / PVS search
   - clustered transposition table with cross-move reuse
+  - staged threat move generation for defense and forcing lines
+  - selective VCF probing with forcing-only candidates
+  - cautious win-verification re-search for mate-like tactical scores
   - tactical threat-sequence search
   - opening book
-  - iterative deepening with time governor
+  - iterative deepening with dynamic time governor
+  - bounded parallel root search
   - live search progress reporting in the GUI
   - AI-only OTB-style clock presets in the GUI
 - Tooling:
@@ -137,8 +141,17 @@ Gomocup adapter:
 Tournament runner:
 
 ```bash
-./build/gomoku_tournament ./build/gomoku_gomocup ./build/gomoku_gomocup
+./build/gomoku_tournament \
+  -n 32 \
+  -t 500 \
+  -o tournaments/openings.txt \
+  ./build/gomoku_gomocup \
+  ./build/gomoku_gomocup
 ```
+
+Recent benchmark against the recorded `v0-baseline` ref:
+- `500 ms/move`: `20-12` for current `expert` vs `v0` expert
+- `1000 ms/move`: `27-5` for current `expert` vs `v0` expert
 
 ## Tests
 
@@ -173,6 +186,6 @@ ctest --test-dir build --output-on-failure
 Current branch highlights:
 - GUI play with human or AI seats
 - opening-book play in the main engine
-- threat-aware search with tactical sequence support
+- threat-aware search with staged tactical generation, VCF support, and win verification
 - AI-only repeating time controls in the GUI
 - save/load support for GUI games

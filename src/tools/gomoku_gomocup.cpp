@@ -237,7 +237,12 @@ private:
             writeLine("ERROR game over, cannot reply");
             return;
         }
+        const int actionsBefore = match_->state().actionCount();
         match_->stepAi();
+        if (match_->state().actionCount() == actionsBefore) {
+            writeLine("ERROR engine produced no action");
+            return;
+        }
         const auto last = match_->state().lastPlacedMove();
         if (!last) {
             writeLine("ERROR engine produced no move");

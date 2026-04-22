@@ -1,14 +1,17 @@
 #include "gomoku/Search.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
+#include <future>
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <thread>
 #include <vector>
 
 #include "gomoku/OpeningBook.hpp"
@@ -71,6 +74,7 @@ public:
     }
 
     void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
         generation_ = 1;
         for (auto& cluster : clusters_) {
             for (auto& entry : cluster) {
@@ -80,34 +84,38 @@ public:
     }
 
     void newGeneration() {
+        std::lock_guard<std::mutex> lock(mutex_);
         ++generation_;
         if (generation_ == 0) {
             generation_ = 1;
         }
     }
 
-    TTEntry* find(std::uint64_t hash) {
+    std::optional<TTEntry> probe(std::uint64_t hash) {
+        std::lock_guard<std::mutex> lock(mutex_);
         Cluster& cluster = clusterFor(hash);
         for (auto& entry : cluster) {
             if (entry.occupied && entry.hash == hash) {
                 entry.generation = generation_;
-                return &entry;
+                return entry;
             }
         }
-        return nullptr;
+        return std::nullopt;
     }
 
-    const TTEntry* find(std::uint64_t hash) const {
+    std::optional<TTEntry> probe(std::uint64_t hash) const {
+        std::lock_guard<std::mutex> lock(mutex_);
         const Cluster& cluster = clusterFor(hash);
         for (const auto& entry : cluster) {
             if (entry.occupied && entry.hash == hash) {
-                return &entry;
+                return entry;
             }
         }
-        return nullptr;
+        return std::nullopt;
     }
 
     void store(std::uint64_t hash, int depth, int score, BoundType bound, std::optional<Move> bestMove) {
+        std::lock_guard<std::mutex> lock(mutex_);
         Cluster& cluster = clusterFor(hash);
         TTEntry* target = nullptr;
         for (auto& entry : cluster) {
@@ -197,6 +205,7 @@ private:
     std::size_t mask_;
     std::vector<Cluster> clusters_;
     std::uint8_t generation_ {1};
+    mutable std::mutex mutex_;
 };
 
 TranspositionTable& sharedTranspositionTable() {
@@ -213,6 +222,19 @@ struct RootSearchResult {
     std::optional<Move> bestMove;
     int score {-kInfinity};
     int rootCandidateCount {0};
+};
+
+struct RootWorkerResult {
+    bool searched {false};
+    bool completed {true};
+    int score {-kInfinity};
+    std::uint64_t nodes {0};
+    std::uint64_t ttHits {0};
+    std::uint64_t vcfNodes {0};
+    std::uint64_t winVerificationNodes {0};
+    int vcfHits {0};
+    int winVerifications {0};
+    int maxPlyVisited {0};
 };
 
 enum class CandidateStage {
@@ -596,11 +618,11 @@ public:
             // Only engaged when the governor is active (budget_.has_value)
             // and has given us a branching estimate.
             if (depth > 1 && lastIterationCostMs > 0 && budget_
-                && budget_->nextIterBranchingEstimate > 0.0
+                && effectiveNextIterationEstimate() > 0.0
                 && budget_->hardCapMs > 0)
             {
                 const std::int64_t predictedNext = static_cast<std::int64_t>(
-                    static_cast<double>(lastIterationCostMs) * budget_->nextIterBranchingEstimate);
+                    static_cast<double>(lastIterationCostMs) * effectiveNextIterationEstimate());
                 const std::int64_t boundary = budget_->hardCapMs - budget_->finalizationSlackMs;
                 if (static_cast<std::int64_t>(elapsedMs()) + predictedNext > boundary) {
                     break;
@@ -663,7 +685,12 @@ public:
                 bestMoveChangedLastIter_ = lastIterationBestMove_.has_value();
                 stableIterationCount_ = 0;
             }
+            scoreSwingLastIter_ = lastIterationScore_.has_value()
+                && budget_
+                && budget_->scoreSwingThreshold > 0
+                && std::abs(iteration.score - *lastIterationScore_) >= budget_->scoreSwingThreshold;
             lastIterationBestMove_ = iteration.bestMove;
+            lastIterationScore_ = iteration.score;
 
             if (softLimitReached()) {
                 break;
@@ -680,7 +707,9 @@ private:
     std::uint64_t nodes_ {0};
     std::uint64_t ttHits_ {0};
     std::uint64_t vcfProbeNodes_ {0};
+    std::uint64_t winVerificationNodes_ {0};
     int vcfHits_ {0};
+    int winVerificationCount_ {0};
     int rootIterationDepth_ {0};
     int maxPlyVisited_ {0};
     bool completedDepth_ {true};
@@ -688,8 +717,10 @@ private:
     // See effectiveSoftLimitMs — kept here rather than in the ID loop so
     // softLimitReached() can consult them.
     std::optional<Move> lastIterationBestMove_ {};
+    std::optional<int> lastIterationScore_ {};
     int  stableIterationCount_ {0};
     bool bestMoveChangedLastIter_ {false};
+    bool scoreSwingLastIter_ {false};
     TranspositionTable& tt_;
     std::vector<std::array<std::optional<Move>, 2>> killerMoves_;
     std::vector<int> historyScores_;
@@ -702,7 +733,9 @@ private:
         result.summary.nodes = nodes_;
         result.summary.ttHits = ttHits_;
         result.summary.vcfNodes = vcfProbeNodes_;
+        result.summary.winVerificationNodes = winVerificationNodes_;
         result.summary.vcfHits = vcfHits_;
+        result.summary.winVerifications = winVerificationCount_;
         result.summary.elapsedMs = elapsedMs();
         return result;
     }
@@ -717,7 +750,9 @@ private:
         progress.nodes = nodes_;
         progress.ttHits = ttHits_;
         progress.vcfNodes = vcfProbeNodes_;
+        progress.winVerificationNodes = winVerificationNodes_;
         progress.vcfHits = vcfHits_;
+        progress.winVerifications = winVerificationCount_;
         progress.elapsedMs = elapsedMs();
         config_.progressCallback(progress);
     }
@@ -766,8 +801,11 @@ private:
             return base;
         }
         double scale = 1.0;
-        if (bestMoveChangedLastIter_) {
+        if (bestMoveChangedLastIter_ || scoreSwingLastIter_) {
             scale = budget_->bestMoveUnstableScale;
+            if (scoreSwingLastIter_) {
+                scale = std::max(scale, budget_->scoreSwingUnstableScale);
+            }
         } else if (stableIterationCount_ >= budget_->stableIterationsNeeded) {
             scale = budget_->bestMoveStableScale;
         }
@@ -781,6 +819,21 @@ private:
     bool softLimitReached() const {
         const int limit = effectiveSoftLimitMs();
         return limit > 0 && elapsedMs() >= limit;
+    }
+
+    double effectiveNextIterationEstimate() const {
+        if (!budget_ || budget_->nextIterBranchingEstimate <= 0.0) {
+            return 0.0;
+        }
+
+        double estimate = budget_->nextIterBranchingEstimate;
+        const bool unstable = bestMoveChangedLastIter_ || scoreSwingLastIter_;
+        if (unstable) {
+            estimate *= budget_->nextIterUnstableScale;
+        } else if (stableIterationCount_ >= budget_->stableIterationsNeeded) {
+            estimate *= budget_->nextIterStableScale;
+        }
+        return std::max(0.0, estimate);
     }
 
     bool shouldRunRootThreatSearch(const GameState& state) const {
@@ -1095,6 +1148,104 @@ private:
         return true;
     }
 
+    bool shouldVerifyWinningScore(int score,
+                                  int childDepth,
+                                  ThreatType attackThreat,
+                                  ThreatType blockThreat,
+                                  bool allowWinVerification,
+                                  bool cautiousVerification) const {
+        if (!allowWinVerification || cautiousVerification || !config_.useWinVerificationResearch || !completedDepth_) {
+            return false;
+        }
+        if (score < kMateThreshold || childDepth <= 0) {
+            return false;
+        }
+        return threatSeverity(attackThreat) >= threatSeverity(ThreatType::OpenThree)
+            || threatSeverity(blockThreat) >= threatSeverity(ThreatType::OpenThree);
+    }
+
+    int verifyWinningScore(GameState& child,
+                           int childDepth,
+                           int alpha,
+                           int beta,
+                           int ply,
+                           int originalScore) {
+        ++winVerificationCount_;
+        const std::uint64_t nodesBefore = nodes_;
+        const int verifyScore = -negamax(child, childDepth, -beta, -alpha, ply,
+            false, false, true);
+        winVerificationNodes_ += nodes_ - nodesBefore;
+        if (!completedDepth_) {
+            return originalScore;
+        }
+        return verifyScore;
+    }
+
+    unsigned effectiveRootThreadCount(std::size_t candidateCount, int depth) const {
+        if (depth < 3 || candidateCount < 3) {
+            return 1;
+        }
+        if (config_.maxNodes > 0 && config_.maxNodes < 250'000) {
+            return 1;
+        }
+        unsigned desired = config_.maxRootThreads > 0
+            ? static_cast<unsigned>(config_.maxRootThreads)
+            : std::thread::hardware_concurrency();
+        if (desired == 0) {
+            desired = 1;
+        }
+        desired = std::min<unsigned>(desired, 8U);
+        desired = std::min<unsigned>(desired, static_cast<unsigned>(candidateCount - 1));
+        return std::max(1U, desired);
+    }
+
+    RootWorkerResult evaluateRootMoveParallel(const GameState& rootState,
+                                              Move move,
+                                              int childDepth,
+                                              int alpha,
+                                              int beta,
+                                              ThreatType attackThreat,
+                                              ThreatType blockThreat) const {
+        RootWorkerResult result;
+        GameState child = rootState;
+        if (!child.applyMove(move)) {
+            return result;
+        }
+
+        SearchRunner worker(config_, tt_, budget_);
+        worker.startTime_ = startTime_;
+        worker.rootIterationDepth_ = rootIterationDepth_;
+        worker.killerMoves_ = killerMoves_;
+        worker.historyScores_ = historyScores_;
+        worker.counterMoves_ = counterMoves_;
+        worker.defensiveBlockingMoves_ = defensiveBlockingMoves_;
+
+        result.searched = true;
+        result.score = -worker.negamax(child, childDepth, -beta, -alpha, 1, true, true, false);
+        if (worker.shouldVerifyWinningScore(result.score, childDepth, attackThreat, blockThreat, true, false)) {
+            result.score = worker.verifyWinningScore(child, childDepth, alpha, beta, 1, result.score);
+        }
+        result.completed = worker.completedDepth_;
+        result.nodes = worker.nodes_;
+        result.ttHits = worker.ttHits_;
+        result.vcfNodes = worker.vcfProbeNodes_;
+        result.winVerificationNodes = worker.winVerificationNodes_;
+        result.vcfHits = worker.vcfHits_;
+        result.winVerifications = worker.winVerificationCount_;
+        result.maxPlyVisited = worker.maxPlyVisited_;
+        return result;
+    }
+
+    void absorbRootWorkerStats(const RootWorkerResult& worker) {
+        nodes_ += worker.nodes;
+        ttHits_ += worker.ttHits;
+        vcfProbeNodes_ += worker.vcfNodes;
+        winVerificationNodes_ += worker.winVerificationNodes;
+        vcfHits_ += worker.vcfHits;
+        winVerificationCount_ += worker.winVerifications;
+        maxPlyVisited_ = std::max(maxPlyVisited_, worker.maxPlyVisited);
+    }
+
     std::vector<CandidateMove> generateOrderedCandidates(const GameState& state, int ply, std::optional<Move> preferredMove = std::nullopt) {
         const Player player = state.sideToMove();
         const CandidateStage stage = chooseCandidateStage(state, ply);
@@ -1122,12 +1273,19 @@ private:
                 candidates = generateDefaultStageCandidates(state, player, budget);
                 break;
         }
+        if (candidates.empty() && stage != CandidateStage::Default) {
+            // Staged tactical generators are intentionally selective, but
+            // they must never strand the search with no legal move on a
+            // non-terminal position. Fall back to the generic candidate
+            // set if a specialized stage rejects everything.
+            candidates = generateDefaultStageCandidates(state, player, budget);
+        }
         if (candidates.empty()) {
             return candidates;
         }
 
         std::optional<Move> ttBestMove;
-        if (const TTEntry* found = tt_.find(state.positionHash())) {
+        if (const auto found = tt_.probe(state.positionHash()); found.has_value()) {
             ttBestMove = found->bestMove;
         }
 
@@ -1221,45 +1379,132 @@ private:
         const int forcedDefenseExtension = (rootExtensionAllowed
             && state.hasThreatAtLeast(rootOpponent, ThreatType::SimpleFour)) ? 1 : 0;
 
-        for (std::size_t index = 0; index < candidates.size(); ++index) {
-            const ThreatType attackThreat = candidates[index].threatInfo.best;
-            if (!state.applyMove(candidates[index].move)) {
-                continue;
-            }
-
+        auto childDepthFor = [&](ThreatType attackThreat) {
             int checkExtension = 0;
             if (rootExtensionAllowed
                 && threatSeverity(attackThreat) >= threatSeverity(ThreatType::SimpleFour)) {
                 checkExtension = 1;
             }
-            const int childDepth = depth - 1 + forcedDefenseExtension + checkExtension;
+            return depth - 1 + forcedDefenseExtension + checkExtension;
+        };
 
-            searchedAnyChild = true;
-            int score = 0;
-            if (index == 0) {
-                score = -negamax(state, childDepth, -beta, -alpha, 1, true);
+        const unsigned rootThreads = effectiveRootThreadCount(candidates.size(), depth);
+        const bool parallelRoot = rootThreads > 1;
+
+        std::size_t index = 0;
+        if (!parallelRoot || candidates.empty()) {
+            index = 0;
+        }
+
+        if (!candidates.empty()) {
+            const ThreatType attackThreat = candidates[index].threatInfo.best;
+            const ThreatType blockThreat = state.threatInfoAt(candidates[index].move, rootOpponent).best;
+            if (!state.applyMove(candidates[index].move)) {
+                ++index;
             } else {
-                score = -negamax(state, childDepth, -alpha - 1, -alpha, 1, true);
-                if (completedDepth_ && score > alpha && score < beta) {
-                    score = -negamax(state, childDepth, -beta, -alpha, 1, true);
+                const int childDepth = childDepthFor(attackThreat);
+
+                searchedAnyChild = true;
+                int score = -negamax(state, childDepth, -beta, -alpha, 1, true, true, false);
+                if (shouldVerifyWinningScore(score, childDepth, attackThreat, blockThreat, true, false)) {
+                    score = verifyWinningScore(state, childDepth, alpha, beta, 1, score);
                 }
-            }
-            state.undo();
+                state.undo();
 
-            if (!completedDepth_) {
-                return result;
-            }
+                if (!completedDepth_) {
+                    return result;
+                }
 
-            if (!bestMove.has_value() || score > bestScore) {
                 bestScore = score;
                 bestMove = candidates[index].move;
+                alpha = std::max(alpha, score);
+                ++index;
+            }
+        }
+
+        if (completedDepth_ && alpha < beta && parallelRoot && index < candidates.size()) {
+            const int parallelAlpha = alpha;
+            std::vector<RootWorkerResult> workerResults(candidates.size());
+            std::atomic<std::size_t> nextIndex {index};
+            std::vector<std::future<void>> workers;
+            workers.reserve(rootThreads);
+
+            for (unsigned workerIndex = 0; workerIndex < rootThreads; ++workerIndex) {
+                workers.push_back(std::async(std::launch::async, [&]() {
+                    while (true) {
+                        const std::size_t current = nextIndex.fetch_add(1);
+                        if (current >= candidates.size()) {
+                            break;
+                        }
+                        const ThreatType attackThreat = candidates[current].threatInfo.best;
+                        const ThreatType blockThreat = state.threatInfoAt(candidates[current].move, rootOpponent).best;
+                        const int childDepth = childDepthFor(attackThreat);
+                        workerResults[current] = evaluateRootMoveParallel(
+                            state, candidates[current].move, childDepth, parallelAlpha, beta, attackThreat, blockThreat);
+                    }
+                }));
             }
 
-            alpha = std::max(alpha, score);
-            if (alpha >= beta) {
-                recordCutoffMove(candidates[index].move, depth, 0, state.lastPlacedMove());
-                break;
+            for (auto& worker : workers) {
+                worker.get();
             }
+
+            for (; index < candidates.size(); ++index) {
+                const RootWorkerResult& worker = workerResults[index];
+                if (!worker.searched) {
+                    continue;
+                }
+                searchedAnyChild = true;
+                absorbRootWorkerStats(worker);
+                if (!worker.completed) {
+                    completedDepth_ = false;
+                    return result;
+                }
+                if (!bestMove.has_value() || worker.score > bestScore) {
+                    bestScore = worker.score;
+                    bestMove = candidates[index].move;
+                }
+                alpha = std::max(alpha, worker.score);
+            }
+        } else {
+            for (; index < candidates.size(); ++index) {
+                const ThreatType attackThreat = candidates[index].threatInfo.best;
+                const ThreatType blockThreat = state.threatInfoAt(candidates[index].move, rootOpponent).best;
+                if (!state.applyMove(candidates[index].move)) {
+                    continue;
+                }
+
+                const int childDepth = childDepthFor(attackThreat);
+
+                searchedAnyChild = true;
+                int score = -negamax(state, childDepth, -alpha - 1, -alpha, 1, true, true, false);
+                if (completedDepth_ && score > alpha && score < beta) {
+                    score = -negamax(state, childDepth, -beta, -alpha, 1, true, true, false);
+                }
+                if (shouldVerifyWinningScore(score, childDepth, attackThreat, blockThreat, true, false)) {
+                    score = verifyWinningScore(state, childDepth, alpha, beta, 1, score);
+                }
+                state.undo();
+
+                if (!completedDepth_) {
+                    return result;
+                }
+
+                if (!bestMove.has_value() || score > bestScore) {
+                    bestScore = score;
+                    bestMove = candidates[index].move;
+                }
+
+                alpha = std::max(alpha, score);
+                if (alpha >= beta) {
+                    recordCutoffMove(candidates[index].move, depth, 0, state.lastPlacedMove());
+                    break;
+                }
+            }
+        }
+
+        if (alpha >= beta && bestMove.has_value()) {
+            recordCutoffMove(*bestMove, depth, 0, state.lastPlacedMove());
         }
 
         if (!searchedAnyChild || !bestMove.has_value()) {
@@ -1289,14 +1534,23 @@ private:
                     ThreatType attackThreat,
                     ThreatType blockThreat,
                     int extension,
-                    bool checkExtensionAllowed) {
+                    bool checkExtensionAllowed,
+                    bool allowWinVerification,
+                    bool cautiousVerification) {
         if (checkExtensionAllowed
             && threatSeverity(attackThreat) >= threatSeverity(ThreatType::SimpleFour)) {
             extension += 1;
         }
         const int childDepth = depth - 1 + extension;
+        const bool childAllowNullMove = !cautiousVerification;
         if (index == 0) {
-            return -negamax(child, childDepth, -beta, -alpha, ply + 1, true);
+            int score = -negamax(child, childDepth, -beta, -alpha, ply + 1,
+                childAllowNullMove, allowWinVerification, cautiousVerification);
+            if (shouldVerifyWinningScore(score, childDepth, attackThreat, blockThreat,
+                    allowWinVerification, cautiousVerification)) {
+                score = verifyWinningScore(child, childDepth, alpha, beta, ply + 1, score);
+            }
+            return score;
         }
 
         // Tactical moves (creating or blocking a forcing threat) are not reduced.
@@ -1312,32 +1566,53 @@ private:
         int reduction = kLmrTable.data[isPvNode ? 1U : 0U][depthIdx][moveIdx];
         // Keep the reduced search at a useful depth (>= 1).
         reduction = std::min(reduction, depth - 2);
-        const bool tryLmr = !isTactical
+        const bool tryLmr = !cautiousVerification
+            && !isTactical
             && depth >= kLmrDepthThreshold
             && index >= kLmrMoveThreshold
             && reduction > 0;
 
         if (tryLmr) {
             const int lmrDepth = childDepth - reduction;
-            int score = -negamax(child, lmrDepth, -alpha - 1, -alpha, ply + 1, true);
+            int score = -negamax(child, lmrDepth, -alpha - 1, -alpha, ply + 1,
+                childAllowNullMove, allowWinVerification, cautiousVerification);
             // On a fail-high, verify at full depth before accepting.
             if (completedDepth_ && score > alpha) {
-                score = -negamax(child, childDepth, -alpha - 1, -alpha, ply + 1, true);
+                score = -negamax(child, childDepth, -alpha - 1, -alpha, ply + 1,
+                    childAllowNullMove, allowWinVerification, cautiousVerification);
                 if (completedDepth_ && score > alpha && score < beta) {
-                    score = -negamax(child, childDepth, -beta, -alpha, ply + 1, true);
+                    score = -negamax(child, childDepth, -beta, -alpha, ply + 1,
+                        childAllowNullMove, allowWinVerification, cautiousVerification);
                 }
+            }
+            if (shouldVerifyWinningScore(score, childDepth, attackThreat, blockThreat,
+                    allowWinVerification, cautiousVerification)) {
+                score = verifyWinningScore(child, childDepth, alpha, beta, ply + 1, score);
             }
             return score;
         }
 
-        int score = -negamax(child, childDepth, -alpha - 1, -alpha, ply + 1, true);
+        int score = -negamax(child, childDepth, -alpha - 1, -alpha, ply + 1,
+            childAllowNullMove, allowWinVerification, cautiousVerification);
         if (completedDepth_ && score > alpha && score < beta) {
-            score = -negamax(child, childDepth, -beta, -alpha, ply + 1, true);
+            score = -negamax(child, childDepth, -beta, -alpha, ply + 1,
+                childAllowNullMove, allowWinVerification, cautiousVerification);
+        }
+        if (shouldVerifyWinningScore(score, childDepth, attackThreat, blockThreat,
+                allowWinVerification, cautiousVerification)) {
+            score = verifyWinningScore(child, childDepth, alpha, beta, ply + 1, score);
         }
         return score;
     }
 
-    int negamax(GameState& state, int depth, int alpha, int beta, int ply, bool allowNullMove) {
+    int negamax(GameState& state,
+                int depth,
+                int alpha,
+                int beta,
+                int ply,
+                bool allowNullMove,
+                bool allowWinVerification,
+                bool cautiousVerification) {
         maxPlyVisited_ = std::max(maxPlyVisited_, ply);
         ++nodes_;
         if (shouldStop()) {
@@ -1355,19 +1630,21 @@ private:
         }
 
         const std::uint64_t key = state.positionHash();
-        if (const TTEntry* found = tt_.find(key); found != nullptr && found->depth >= depth) {
-            ++ttHits_;
-            const int ttScore = scoreFromTT(found->score, ply);
-            if (found->bound == BoundType::Exact) {
-                return ttScore;
-            }
-            if (found->bound == BoundType::Lower) {
-                alpha = std::max(alpha, ttScore);
-            } else {
-                beta = std::min(beta, ttScore);
-            }
-            if (alpha >= beta) {
-                return ttScore;
+        if (!cautiousVerification) {
+            if (const auto found = tt_.probe(key); found.has_value() && found->depth >= depth) {
+                ++ttHits_;
+                const int ttScore = scoreFromTT(found->score, ply);
+                if (found->bound == BoundType::Exact) {
+                    return ttScore;
+                }
+                if (found->bound == BoundType::Lower) {
+                    alpha = std::max(alpha, ttScore);
+                } else {
+                    beta = std::min(beta, ttScore);
+                }
+                if (alpha >= beta) {
+                    return ttScore;
+                }
             }
         }
 
@@ -1398,7 +1675,7 @@ private:
         const bool nearMate = std::abs(alpha) >= kMateThreshold || std::abs(beta) >= kMateThreshold;
         const Player opponent = otherPlayer(state.sideToMove());
         const bool underForcingThreat = state.hasThreatAtLeast(opponent, ThreatType::OpenThree);
-        if (!isPvNode && !nearMate && !underForcingThreat && ply > 0) {
+        if (!cautiousVerification && !isPvNode && !nearMate && !underForcingThreat && ply > 0) {
             constexpr int kFutilityMarginPerDepth = 45;
             // Reverse futility: if static eval already beats beta by a fat
             // margin, trust it and return without searching.
@@ -1411,7 +1688,8 @@ private:
             // the position is hopeless and we return the probe score.
             if (depth < 5 && alpha > -kMateThreshold
                 && staticEval + kFutilityMarginPerDepth * depth < alpha) {
-                const int razored = negamax(state, 0, alpha, beta, ply, allowNullMove);
+                const int razored = negamax(state, 0, alpha, beta, ply,
+                    allowNullMove, allowWinVerification, cautiousVerification);
                 if (!completedDepth_) {
                     return 0;
                 }
@@ -1425,7 +1703,8 @@ private:
             GameState nullState = state;
             nullState.setSideToMoveForAnalysis(otherPlayer(state.sideToMove()));
             const int reduction = depth >= 6 ? 3 : 2;
-            const int nullScore = -negamax(nullState, depth - 1 - reduction, -beta, -beta + 1, ply + 1, false);
+            const int nullScore = -negamax(nullState, depth - 1 - reduction, -beta, -beta + 1, ply + 1,
+                false, false, cautiousVerification);
             if (!completedDepth_) {
                 return 0;
             }
@@ -1435,7 +1714,8 @@ private:
                     // given to the opponent means mate-distance is unreliable.
                     // Verify with a shallow re-search instead.
                     const int verifyDepth = std::max(1, depth - 1 - reduction);
-                    const int verifyScore = -negamax(state, verifyDepth, -beta, -beta + 1, ply, true);
+                    const int verifyScore = -negamax(state, verifyDepth, -beta, -beta + 1, ply,
+                        false, false, true);
                     if (completedDepth_ && verifyScore >= beta) {
                         return verifyScore;
                     }
@@ -1450,11 +1730,12 @@ private:
         // a real ordering seed from the TT when the full-depth search starts.
         if (depth >= 7 && beta - alpha > 1) {
             bool haveTtMove = false;
-            if (const TTEntry* found = tt_.find(key); found != nullptr && found->bestMove.has_value()) {
+            if (const auto found = tt_.probe(key); found.has_value() && found->bestMove.has_value()) {
                 haveTtMove = true;
             }
             if (!haveTtMove) {
-                negamax(state, depth / 2, alpha, beta, ply, allowNullMove);
+                negamax(state, depth / 2, alpha, beta, ply,
+                    allowNullMove, allowWinVerification, cautiousVerification);
                 if (!completedDepth_) {
                     return 0;
                 }
@@ -1492,7 +1773,9 @@ private:
                 continue;
             }
 
-            const int score = searchChild(state, depth, alpha, beta, ply, index, attackThreat, blockThreat, forcedDefenseExtension, extensionAllowed);
+            const int score = searchChild(state, depth, alpha, beta, ply, index,
+                attackThreat, blockThreat, forcedDefenseExtension, extensionAllowed,
+                allowWinVerification, cautiousVerification);
             state.undo();
             if (!completedDepth_) {
                 return 0;
@@ -1534,8 +1817,8 @@ private:
         pv.push_back(firstMove);
 
         for (int remaining = depth - 1; remaining > 0; --remaining) {
-            const TTEntry* found = tt_.find(line.positionHash());
-            if (found == nullptr || !found->bestMove.has_value()) {
+            const auto found = tt_.probe(line.positionHash());
+            if (!found.has_value() || !found->bestMove.has_value()) {
                 break;
             }
 

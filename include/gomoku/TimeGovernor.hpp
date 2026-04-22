@@ -32,6 +32,10 @@ struct MoveBudget {
     double bestMoveUnstableScale {1.0};
     double bestMoveStableScale   {1.0};
     int    stableIterationsNeeded {-1};
+    double nextIterUnstableScale {1.0};
+    double nextIterStableScale {1.0};
+    int scoreSwingThreshold {0};
+    double scoreSwingUnstableScale {1.0};
 };
 
 // Static knobs for the baseline governor (v1 step 3). Only the fields
@@ -99,6 +103,10 @@ struct TimeGovernorConfig {
     double bestMoveUnstableScale {1.4};
     double bestMoveStableScale   {0.80};
     int    stableIterationsNeeded {2};
+    double nextIterUnstableScale {0.85};
+    double nextIterStableScale {1.15};
+    int scoreSwingThreshold {120};
+    double scoreSwingUnstableScale {1.15};
 };
 
 class TimeGovernor {

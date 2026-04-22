@@ -107,6 +107,10 @@ void testBudgetReportsInstabilityKnobs() {
     cfg.bestMoveUnstableScale = 1.5;
     cfg.bestMoveStableScale   = 0.6;
     cfg.stableIterationsNeeded = 3;
+    cfg.nextIterUnstableScale = 0.75;
+    cfg.nextIterStableScale = 1.3;
+    cfg.scoreSwingThreshold = 90;
+    cfg.scoreSwingUnstableScale = 1.2;
     ClockState clock;
     clock.timeLeftMs = 10'000;
     clock.moveNumber = 5;
@@ -116,6 +120,10 @@ void testBudgetReportsInstabilityKnobs() {
     assert(budget->bestMoveUnstableScale  == 1.5);
     assert(budget->bestMoveStableScale    == 0.6);
     assert(budget->stableIterationsNeeded == 3);
+    assert(budget->nextIterUnstableScale == 0.75);
+    assert(budget->nextIterStableScale == 1.3);
+    assert(budget->scoreSwingThreshold == 90);
+    assert(budget->scoreSwingUnstableScale == 1.2);
 }
 
 void testThreatBonusScalesBudgetUp() {
