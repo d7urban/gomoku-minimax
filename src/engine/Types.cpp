@@ -82,8 +82,21 @@ std::string_view toString(ControllerKind controller) {
             return "tactical";
         case ControllerKind::ExpertAI:
             return "expert";
-        case ControllerKind::AnalystAI:
-            return "analyst";
+        default:
+            return "unknown";
+    }
+}
+
+std::string_view toString(AiTimeControlPreset preset) {
+    switch (preset) {
+        case AiTimeControlPreset::FixedPerMove:
+            return "fixed";
+        case AiTimeControlPreset::Blitz:
+            return "blitz";
+        case AiTimeControlPreset::Fast:
+            return "fast";
+        case AiTimeControlPreset::Slow:
+            return "slow";
         default:
             return "unknown";
     }
@@ -108,6 +121,20 @@ std::string_view toString(SwapChoice choice) {
             return "swap";
         default:
             return "unknown";
+    }
+}
+
+AiTimeControlSpec aiTimeControlSpec(AiTimeControlPreset preset) {
+    switch (preset) {
+        case AiTimeControlPreset::Blitz:
+            return {.periodTimeMs = 5LL * 60LL * 1000LL, .periodMoves = 40};
+        case AiTimeControlPreset::Fast:
+            return {.periodTimeMs = 15LL * 60LL * 1000LL, .periodMoves = 60};
+        case AiTimeControlPreset::Slow:
+            return {.periodTimeMs = 30LL * 60LL * 1000LL, .periodMoves = 80};
+        case AiTimeControlPreset::FixedPerMove:
+        default:
+            return {};
     }
 }
 
@@ -194,7 +221,32 @@ bool tryParseController(std::string_view text, ControllerKind& controller) {
         return true;
     }
     if (lowered == "analyst") {
-        controller = ControllerKind::AnalystAI;
+        controller = ControllerKind::ExpertAI;
+        return true;
+    }
+    return false;
+}
+
+bool tryParseAiTimeControlPreset(std::string_view text, AiTimeControlPreset& preset) {
+    std::string lowered(text);
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+
+    if (lowered == "fixed" || lowered == "fixedpermove") {
+        preset = AiTimeControlPreset::FixedPerMove;
+        return true;
+    }
+    if (lowered == "blitz") {
+        preset = AiTimeControlPreset::Blitz;
+        return true;
+    }
+    if (lowered == "fast") {
+        preset = AiTimeControlPreset::Fast;
+        return true;
+    }
+    if (lowered == "slow") {
+        preset = AiTimeControlPreset::Slow;
         return true;
     }
     return false;

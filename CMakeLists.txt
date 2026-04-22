@@ -14,7 +14,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(GOMOKU_ENABLE_SEARCH_PROFILING "Enable search profiling counters in engine hot paths" OFF)
 
 add_library(gomoku_engine
-    src/engine/AnalystAI.cpp
     src/engine/ClubAI.cpp
     src/engine/ExpertAI.cpp
     src/engine/GameState.cpp

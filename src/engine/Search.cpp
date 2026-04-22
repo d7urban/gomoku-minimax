@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
+#include <limits>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -55,50 +57,174 @@ struct TTEntry {
     int score {0};
     BoundType bound {BoundType::Exact};
     std::optional<Move> bestMove;
+    std::uint8_t generation {0};
     bool occupied {false};
 };
 
 class TranspositionTable {
 public:
-    explicit TranspositionTable(std::size_t log2Size = 20)
-        : mask_((std::size_t{1} << log2Size) - 1)
-        , slots_(mask_ + 1) {
+    static constexpr std::size_t kClusterSize = 4;
+
+    explicit TranspositionTable(std::size_t log2EntryCount = 20)
+        : mask_((std::size_t{1} << clusterLog2(log2EntryCount)) - 1)
+        , clusters_(mask_ + 1) {
     }
 
     void clear() {
-        for (auto& slot : slots_) {
-            slot.occupied = false;
-            slot.bestMove.reset();
+        generation_ = 1;
+        for (auto& cluster : clusters_) {
+            for (auto& entry : cluster) {
+                entry = TTEntry {};
+            }
         }
+    }
+
+    void newGeneration() {
+        ++generation_;
+        if (generation_ == 0) {
+            generation_ = 1;
+        }
+    }
+
+    TTEntry* find(std::uint64_t hash) {
+        Cluster& cluster = clusterFor(hash);
+        for (auto& entry : cluster) {
+            if (entry.occupied && entry.hash == hash) {
+                entry.generation = generation_;
+                return &entry;
+            }
+        }
+        return nullptr;
     }
 
     const TTEntry* find(std::uint64_t hash) const {
-        const TTEntry& slot = slots_[hash & mask_];
-        return slot.occupied && slot.hash == hash ? &slot : nullptr;
+        const Cluster& cluster = clusterFor(hash);
+        for (const auto& entry : cluster) {
+            if (entry.occupied && entry.hash == hash) {
+                return &entry;
+            }
+        }
+        return nullptr;
     }
 
     void store(std::uint64_t hash, int depth, int score, BoundType bound, std::optional<Move> bestMove) {
-        TTEntry& slot = slots_[hash & mask_];
-        if (!slot.occupied || slot.hash == hash || slot.depth <= depth) {
-            slot.hash = hash;
-            slot.depth = depth;
-            slot.score = score;
-            slot.bound = bound;
-            slot.bestMove = std::move(bestMove);
-            slot.occupied = true;
+        Cluster& cluster = clusterFor(hash);
+        TTEntry* target = nullptr;
+        for (auto& entry : cluster) {
+            if (entry.occupied && entry.hash == hash) {
+                target = &entry;
+                break;
+            }
         }
+        if (target == nullptr) {
+            for (auto& entry : cluster) {
+                if (!entry.occupied) {
+                    target = &entry;
+                    break;
+                }
+            }
+        }
+        if (target == nullptr) {
+            target = &cluster.front();
+            int weakestValue = replacementValue(*target);
+            for (auto& entry : cluster) {
+                const int value = replacementValue(entry);
+                if (value < weakestValue) {
+                    weakestValue = value;
+                    target = &entry;
+                }
+            }
+        }
+
+        if (target->occupied && target->hash == hash) {
+            target->generation = generation_;
+            if (!bestMove.has_value()) {
+                bestMove = target->bestMove;
+            }
+
+            const bool exactUpgrade = bound == BoundType::Exact && target->bound != BoundType::Exact;
+            const bool deeperOrEqual = depth >= target->depth;
+            const bool nearDepthRefresh = target->generation != generation_ && depth >= target->depth - 2;
+            const bool shouldOverwrite = exactUpgrade || deeperOrEqual || nearDepthRefresh;
+            if (!shouldOverwrite) {
+                if (bestMove.has_value()) {
+                    target->bestMove = std::move(bestMove);
+                }
+                return;
+            }
+        }
+
+        target->hash = hash;
+        target->depth = depth;
+        target->score = score;
+        target->bound = bound;
+        target->bestMove = std::move(bestMove);
+        target->generation = generation_;
+        target->occupied = true;
     }
 
 private:
+    using Cluster = std::array<TTEntry, kClusterSize>;
+
+    static constexpr std::size_t clusterLog2(std::size_t log2EntryCount) {
+        std::size_t value = (log2EntryCount > 0) ? log2EntryCount : 1;
+        while ((std::size_t{1} << value) < kClusterSize) {
+            ++value;
+        }
+        if (value >= 2) {
+            return value - 2;
+        }
+        return 0;
+    }
+
+    int replacementValue(const TTEntry& entry) const {
+        if (!entry.occupied) {
+            return std::numeric_limits<int>::min();
+        }
+        const int age = static_cast<int>(generation_ - entry.generation);
+        const int exactBonus = entry.bound == BoundType::Exact ? 6 : 0;
+        return entry.depth + exactBonus - age * 8;
+    }
+
+    Cluster& clusterFor(std::uint64_t hash) {
+        return clusters_[hash & mask_];
+    }
+
+    const Cluster& clusterFor(std::uint64_t hash) const {
+        return clusters_[hash & mask_];
+    }
+
     std::size_t mask_;
-    std::vector<TTEntry> slots_;
+    std::vector<Cluster> clusters_;
+    std::uint8_t generation_ {1};
 };
+
+TranspositionTable& sharedTranspositionTable() {
+    static TranspositionTable table;
+    return table;
+}
+
+std::mutex& sharedSearchMutex() {
+    static std::mutex mutex;
+    return mutex;
+}
 
 struct RootSearchResult {
     std::optional<Move> bestMove;
     int score {-kInfinity};
     int rootCandidateCount {0};
 };
+
+std::vector<Move> collectImmediateWinningMoves(const GameState& state, Player player) {
+    std::vector<Move> winningMoves;
+    winningMoves.reserve(4);
+    for (const Move& move : state.legalMoves()) {
+        if (state.threatInfoAt(move, player).best == ThreatType::Five) {
+            winningMoves.push_back(move);
+        }
+    }
+    return winningMoves;
+}
 
 constexpr int scoreToTT(int score, int ply) {
     if (score >= kMateThreshold) {
@@ -257,14 +383,16 @@ struct VcfProbe {
 
 class SearchRunner {
 public:
-    explicit SearchRunner(SearchConfig config, std::optional<MoveBudget> budget = std::nullopt)
+    explicit SearchRunner(SearchConfig config, TranspositionTable& table, std::optional<MoveBudget> budget = std::nullopt)
         : config_(config)
-        , budget_(std::move(budget)) {
+        , budget_(std::move(budget))
+        , tt_(table) {
     }
 
     SearchResult run(const GameState& state) {
         SearchResult result;
         startTime_ = Clock::now();
+        tt_.newGeneration();
         historyScores_.assign(16U * 16U, 0);
         killerMoves_.assign(static_cast<std::size_t>(std::max(config_.maxDepth + 8, kMaxSearchPly)), {});
         counterMoves_.assign(16U * 16U, std::nullopt);
@@ -283,6 +411,30 @@ public:
             }
         }
 
+        const Player side = state.sideToMove();
+        if (const std::vector<Move> winningMoves = collectImmediateWinningMoves(state, side); !winningMoves.empty()) {
+            result.bestMove = winningMoves.front();
+            result.summary.score = kMateScore;
+            result.summary.depthReached = 1;
+            result.summary.maxDepthVisited = 1;
+            result.summary.rootCandidateCount = static_cast<int>(winningMoves.size());
+            result.summary.completedLastDepth = true;
+            result.summary.principalVariation = {winningMoves.front()};
+            return finalizeResult(std::move(result));
+        }
+
+        const Player opponent = otherPlayer(side);
+        const std::vector<Move> opponentWinningMoves = collectImmediateWinningMoves(state, opponent);
+        if (opponentWinningMoves.size() == 1U) {
+            result.bestMove = opponentWinningMoves.front();
+            result.summary.score = StaticEvaluator::evaluate(state, side);
+            result.summary.maxDepthVisited = 1;
+            result.summary.rootCandidateCount = 1;
+            result.summary.completedLastDepth = true;
+            result.summary.principalVariation = {opponentWinningMoves.front()};
+            return finalizeResult(std::move(result));
+        }
+
         if (config_.useRootThreatSearch && shouldRunRootThreatSearch(state)) {
             ThreatSequenceConfig threatConfig;
             threatConfig.maxDepth = std::max(2, config_.maxDepth + 2);
@@ -297,6 +449,7 @@ public:
                 result.bestMove = threatResult.sequence.front().move;
                 result.summary.score = kMateScore;
                 result.summary.depthReached = static_cast<int>(threatResult.sequence.size());
+                result.summary.maxDepthVisited = static_cast<int>(threatResult.sequence.size());
                 result.summary.threatSequenceLength = static_cast<int>(threatResult.sequence.size());
                 result.summary.usedThreatSequence = true;
                 result.summary.completedLastDepth = true;
@@ -311,7 +464,6 @@ public:
             // Defensive threat search: check if the opponent has a forced
             // winning sequence. If so, mark the critical blocking moves
             // so the search prioritises them.
-            const Player opponent = otherPlayer(state.sideToMove());
             ThreatSequenceConfig defConfig;
             defConfig.maxDepth = std::max(2, config_.maxDepth);
             defConfig.maxNodes = std::max<std::uint64_t>(500, config_.maxNodes / 6);
@@ -349,6 +501,8 @@ public:
             if (shouldStop() || (depth > 1 && softLimitReached())) {
                 break;
             }
+
+            tt_.newGeneration();
 
             // ID affordability: skip starting the next iteration if the
             // predicted cost would push us past the hard cap with slack.
@@ -410,6 +564,7 @@ public:
             result.summary.principalVariation = extractPrincipalVariation(state, *iteration.bestMove, depth);
             previousScore = iteration.score;
             lastIterationCostMs = std::max(0, elapsedMs() - iterationStartMs);
+            publishProgress(result.summary);
 
             // Update best-move stability state *before* checking softLimit
             // so the effective soft cap reflects this iteration's result.
@@ -440,6 +595,7 @@ private:
     std::uint64_t vcfProbeNodes_ {0};
     int vcfHits_ {0};
     int rootIterationDepth_ {0};
+    int maxPlyVisited_ {0};
     bool completedDepth_ {true};
     // Best-move instability tracking for dynamic soft-limit modulation.
     // See effectiveSoftLimitMs — kept here rather than in the ID loop so
@@ -447,19 +603,36 @@ private:
     std::optional<Move> lastIterationBestMove_ {};
     int  stableIterationCount_ {0};
     bool bestMoveChangedLastIter_ {false};
-    TranspositionTable tt_;
+    TranspositionTable& tt_;
     std::vector<std::array<std::optional<Move>, 2>> killerMoves_;
     std::vector<int> historyScores_;
     std::vector<std::optional<Move>> counterMoves_;
     std::vector<Move> defensiveBlockingMoves_;
 
     SearchResult finalizeResult(SearchResult result) const {
+        result.summary.maxDepthVisited = std::max(result.summary.maxDepthVisited,
+            std::max(result.summary.depthReached, maxPlyVisited_));
         result.summary.nodes = nodes_;
         result.summary.ttHits = ttHits_;
         result.summary.vcfNodes = vcfProbeNodes_;
         result.summary.vcfHits = vcfHits_;
         result.summary.elapsedMs = elapsedMs();
         return result;
+    }
+
+    void publishProgress(const SearchSummary& summary) const {
+        if (!config_.progressCallback) {
+            return;
+        }
+        SearchSummary progress = summary;
+        progress.maxDepthVisited = std::max(progress.maxDepthVisited,
+            std::max(progress.depthReached, maxPlyVisited_));
+        progress.nodes = nodes_;
+        progress.ttHits = ttHits_;
+        progress.vcfNodes = vcfProbeNodes_;
+        progress.vcfHits = vcfHits_;
+        progress.elapsedMs = elapsedMs();
+        config_.progressCallback(progress);
     }
 
     int elapsedMs() const {
@@ -612,9 +785,16 @@ private:
 
         const bool opponentFourOnBoard = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour);
 
-        // Defender squares are the opponent's own extension points: cells
-        // where *they* playing would jump to OpenFour/Five. Occupying those
-        // cells denies the extension.
+        // Defender squares are the opponent's own extension points.
+        //
+        // When the opponent already has a SimpleFour on the board, only the
+        // actual completion squares matter: cells where they would create
+        // OpenFour/Five right now. High-severity forks elsewhere are too slow
+        // and must not survive the filter.
+        //
+        // When the pressure is only OpenThree-level, we also keep cells where
+        // the opponent would create a strong double-threat fork
+        // (OpenThree+OpenThree and stronger).
         std::vector<Move> defenderSquares;
         defenderSquares.reserve(candidates.size());
         for (const CandidateMove& candidate : candidates) {
@@ -624,9 +804,9 @@ private:
             }
             // A cell where the opponent would create a double-threat fork
             // (e.g. two simultaneous OpenThree threats = 3-3 fork) is
-            // equally critical to block. threatSeverityEnhanced >= 600
-            // covers OpenThree+OpenThree forks and higher combinations.
-            if (threatSeverityEnhanced(opponentThreatHere) >= 600) {
+            // equally critical to block, but only when we are not already
+            // facing a live four.
+            if (!opponentFourOnBoard && threatSeverityEnhanced(opponentThreatHere) >= 600) {
                 defenderSquares.push_back(candidate.move);
             }
         }
@@ -865,6 +1045,7 @@ private:
     }
 
     int negamax(GameState& state, int depth, int alpha, int beta, int ply, bool allowNullMove) {
+        maxPlyVisited_ = std::max(maxPlyVisited_, ply);
         ++nodes_;
         if (shouldStop()) {
             return 0;
@@ -1095,6 +1276,7 @@ SearchEngine::SearchEngine(SearchConfig config)
 }
 
 SearchResult SearchEngine::search(const GameState& state) {
+    std::lock_guard<std::mutex> lock(sharedSearchMutex());
     SearchConfig effective = config_;
     std::optional<MoveBudget> budget;
 
@@ -1112,7 +1294,7 @@ SearchResult SearchEngine::search(const GameState& state) {
         }
     }
 
-    SearchRunner runner(effective, std::move(budget));
+    SearchRunner runner(effective, sharedTranspositionTable(), std::move(budget));
     return runner.run(state);
 }
 

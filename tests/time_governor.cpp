@@ -1,5 +1,4 @@
-#include <cassert>
-
+#include "TestAssert.hpp"
 #include "gomoku/ClockState.hpp"
 #include "gomoku/ThreatAssessment.hpp"
 #include "gomoku/TimeGovernor.hpp"
@@ -199,6 +198,29 @@ void testThreatBonusReclampedByTurnCap() {
     assert(budget->targetMs  <= budget->hardCapMs);
 }
 
+void testResetBasedClockUsesActualPeriodLength() {
+    TimeGovernor governor;
+    TimeGovernorConfig cfg;
+    ClockState clock;
+    clock.timeLeftMs = 30LL * 60LL * 1000LL;
+    clock.moveNumber = 0;   // opening
+    clock.movesToReset = 80;
+
+    const auto budget = governor.computeBaselineBudget(clock, cfg);
+    assert(budget.has_value());
+
+    // With a repeating 30m/80 control, the governor should spend
+    // against the real period length, not the generic opening 30-move
+    // heuristic that would inflate this to roughly 39.9s.
+    const std::int64_t usable = clock.timeLeftMs - cfg.absoluteReserveMs
+        - static_cast<std::int64_t>(cfg.relativeReserveFrac * static_cast<double>(clock.timeLeftMs));
+    const std::int64_t expectedTarget = static_cast<std::int64_t>(
+        (static_cast<double>(usable) / static_cast<double>(clock.movesToReset)) * cfg.openingScale);
+
+    assert(budget->targetMs == expectedTarget);
+    assert(budget->targetMs < 20'000);
+}
+
 void testTargetAndHardCapNeverBelowFloor() {
     TimeGovernor governor;
     TimeGovernorConfig cfg;
@@ -226,6 +248,7 @@ int main() {
     testDefenseBonusDominatesAttackBonus();
     testThreatBonusDoesNotStack();
     testThreatBonusReclampedByTurnCap();
+    testResetBasedClockUsesActualPeriodLength();
     testTargetAndHardCapNeverBelowFloor();
     return 0;
 }

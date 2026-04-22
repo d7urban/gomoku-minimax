@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
     Match match(config);
 
     std::cout << "gomoku_cli - text fallback\n";
-    std::cout << "Usage: gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]\n\n";
+    std::cout << "Usage: gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|ai] [human|rookie|club|tactical|expert|ai] [move_time_ms]\n\n";
     printHelp();
 
     while (true) {

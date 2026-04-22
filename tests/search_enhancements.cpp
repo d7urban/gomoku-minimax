@@ -1,8 +1,8 @@
 #include <algorithm>
-#include <cassert>
 #include <cstdlib>
 #include <initializer_list>
 
+#include "TestAssert.hpp"
 #include "gomoku/GameState.hpp"
 #include "gomoku/Rules.hpp"
 #include "gomoku/Search.hpp"
@@ -83,12 +83,19 @@ void testSearchHandlesDeepQuietPosition() {
     config.timeLimitMs = 2000;
     config.maxCandidateMoves = 16;
     config.useOpeningBook = false;
+    std::optional<gomoku::SearchSummary> progress;
+    config.progressCallback = [&](const gomoku::SearchSummary& summary) {
+        progress = summary;
+    };
 
     SearchEngine engine(config);
     const SearchResult result = engine.search(game);
     assert(result.bestMove.has_value());
     assert(result.summary.depthReached >= 2);
     assert(result.summary.nodes > 0);
+    assert(progress.has_value());
+    assert(progress->depthReached >= 1);
+    assert(progress->maxDepthVisited >= progress->depthReached);
 }
 
 void testSearchFindsOpenFourResponse() {
@@ -177,6 +184,55 @@ void testForcingFilterPicksUniqueSimpleFourBlock() {
     assert(*result.bestMove == (Move{7, 4}));
 }
 
+void testUniqueImmediateBlockShortCircuitsSearch() {
+    GameState game = makeGame({
+        {7, 7}, {7, 8},
+        {9, 8}, {8, 7},
+        {9, 6}, {6, 9},
+        {9, 7}, {9, 5},
+        {9, 9},
+    });
+    assert(game.sideToMove() == Player::White);
+
+    SearchConfig config;
+    config.maxDepth = 8;
+    config.maxNodes = 200'000;
+    config.timeLimitMs = 500;
+    config.useOpeningBook = false;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(*result.bestMove == (Move{9, 10}));
+    assert(result.summary.rootCandidateCount == 1);
+    assert(result.summary.nodes == 0);
+}
+
+void testSimpleFourDefenseOnlyKeepsRealBlockingSquares() {
+    GameState game = makeGame({
+        {7, 7}, {7, 8},
+        {9, 8}, {8, 7},
+        {9, 6}, {6, 9},
+        {9, 7}, {9, 5},
+        {9, 9}, {9, 10},
+        {8, 8},
+    });
+    assert(game.sideToMove() == Player::White);
+    assert(game.hasThreatAtLeast(Player::Black, ThreatType::SimpleFour));
+
+    SearchConfig config;
+    config.maxDepth = 8;
+    config.maxNodes = 200'000;
+    config.timeLimitMs = 500;
+    config.useOpeningBook = false;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(*result.bestMove == (Move{6, 6}) || *result.bestMove == (Move{10, 10}));
+    assert(result.summary.rootCandidateCount == 2);
+}
+
 void testVcfLeafDisabledLeavesOtherMatePathsAvailable() {
     // Same position as above, but with the VCF probe switched off. The
     // score can still reach mate through other forcing-search machinery;
@@ -229,9 +285,10 @@ void testForcedFourExtensionTerminates() {
     const SearchResult result = engine.search(game);
     assert(result.bestMove.has_value());
     assert(*result.bestMove == (Move{7, 4}));
-    // Depth must have advanced past the first iteration (otherwise the
-    // extension/cap interaction would be hiding a hang or abort).
-    assert(result.summary.depthReached >= 4);
+    // This used to rely on the forced-four extension path. A root-level
+    // unique-block shortcut is also acceptable now: the important contract
+    // is that the engine returns the only defending move promptly.
+    assert(result.summary.nodes == 0 || result.summary.depthReached >= 4);
 }
 
 void testDefensiveFilterKeepsDoubleOpenThreeCounter() {
@@ -258,6 +315,52 @@ void testDefensiveFilterKeepsDoubleOpenThreeCounter() {
     assert(!isDefensiveCounterMove(counter, true));
 }
 
+void testInterruptedSearchReportsMaxVisitedDepth() {
+    GameState game = makeGame({
+        {7, 7}, {0, 0},
+        {7, 8}, {0, 1},
+    });
+
+    SearchConfig config;
+    config.maxDepth = 4;
+    config.maxNodes = 1;
+    config.timeLimitMs = 1000;
+    config.maxCandidateMoves = 8;
+    config.useOpeningBook = false;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.depthReached == 0);
+    assert(result.summary.maxDepthVisited >= 1);
+    assert(result.summary.nodes <= config.maxNodes);
+}
+
+void testTranspositionTablePersistsAcrossSearchCalls() {
+    GameState game = makeGame({
+        {7, 7}, {7, 8},
+        {8, 7}, {6, 6},
+        {6, 8}, {8, 8},
+    });
+
+    SearchConfig config;
+    config.maxDepth = 5;
+    config.maxNodes = 200'000;
+    config.timeLimitMs = 1000;
+    config.maxCandidateMoves = 16;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+
+    SearchEngine firstEngine(config);
+    const SearchResult first = firstEngine.search(game);
+    assert(first.bestMove.has_value());
+
+    SearchEngine secondEngine(config);
+    const SearchResult second = secondEngine.search(game);
+    assert(second.bestMove.has_value());
+    assert(second.summary.ttHits > 0);
+}
+
 }  // namespace
 
 int main() {
@@ -267,7 +370,11 @@ int main() {
     testShallowSearchFindsOpenFourMate();
     testVcfLeafDisabledLeavesOtherMatePathsAvailable();
     testForcingFilterPicksUniqueSimpleFourBlock();
+    testUniqueImmediateBlockShortCircuitsSearch();
+    testSimpleFourDefenseOnlyKeepsRealBlockingSquares();
     testForcedFourExtensionTerminates();
     testDefensiveFilterKeepsDoubleOpenThreeCounter();
+    testInterruptedSearchReportsMaxVisitedDepth();
+    testTranspositionTablePersistsAcrossSearchCalls();
     return 0;
 }

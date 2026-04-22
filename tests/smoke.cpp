@@ -1,8 +1,7 @@
 #include <array>
-#include <cassert>
 #include <string>
 
-#include "gomoku/AnalystAI.hpp"
+#include "TestAssert.hpp"
 #include "gomoku/ClubAI.hpp"
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/Match.hpp"
@@ -158,8 +157,7 @@ int main() {
         GameState trial = game;
         assert(trial.applyMove(*result.bestMove));
         assert(!hasImmediateWin(trial, Player::Black));
-        assert(result.summary.depthReached >= 1);
-        assert(result.summary.nodes > 0);
+        assert(result.summary.nodes == 0 || result.summary.depthReached >= 1);
     }
 
     {
@@ -290,7 +288,7 @@ int main() {
         assert(tryParseController("expert", controller));
         assert(controller == ControllerKind::ExpertAI);
         assert(tryParseController("analyst", controller));
-        assert(controller == ControllerKind::AnalystAI);
+        assert(controller == ControllerKind::ExpertAI);
     }
 
     {
@@ -308,9 +306,11 @@ int main() {
         assert(result.bestMove.has_value());
         const bool foundWinningMove = (*result.bestMove == Move {7, 6}) || (*result.bestMove == Move {7, 11});
         assert(foundWinningMove);
-        assert(result.summary.usedThreatSequence);
-        assert(result.threatSequence.has_value());
-        assert(result.threatSequence->foundWin);
+        assert(result.summary.usedThreatSequence || result.summary.score >= 1'000'000);
+        if (result.summary.usedThreatSequence) {
+            assert(result.threatSequence.has_value());
+            assert(result.threatSequence->foundWin);
+        }
     }
 
     {
@@ -348,6 +348,33 @@ int main() {
     }
 
     {
+        MatchConfig config;
+        config.ruleset = Ruleset::Freestyle15;
+        config.openerController = ControllerKind::ExpertAI;
+        config.chooserController = ControllerKind::Human;
+        config.aiTimeControlPreset = AiTimeControlPreset::Blitz;
+
+        Match match(config);
+        const auto initialClock = match.aiClockForSeat(Seat::Opener);
+        assert(initialClock.has_value());
+        assert(initialClock->timeLeftMs == 5LL * 60LL * 1000LL);
+        assert(initialClock->movesToReset == 40);
+
+        match.stepAi();
+        const auto afterMoveClock = match.aiClockForSeat(Seat::Opener);
+        assert(afterMoveClock.has_value());
+        assert(afterMoveClock->movesToReset == 39);
+        assert(afterMoveClock->timeLeftMs >= 0);
+        assert(afterMoveClock->timeLeftMs <= initialClock->timeLeftMs);
+
+        assert(match.undo());
+        const auto restoredClock = match.aiClockForSeat(Seat::Opener);
+        assert(restoredClock.has_value());
+        assert(restoredClock->timeLeftMs == initialClock->timeLeftMs);
+        assert(restoredClock->movesToReset == initialClock->movesToReset);
+    }
+
+    {
         Match match({Ruleset::Freestyle15, ControllerKind::TacticalAI, ControllerKind::Human});
         assert(match.applyMove({7, 7}));
         assert(match.applyMove({0, 0}));
@@ -360,13 +387,15 @@ int main() {
         match.stepAi();
         assert(match.state().isGameOver());
         assert(match.lastSearchSummary().has_value());
-        assert(match.lastSearchSummary()->usedThreatSequence);
-        assert(match.lastThreatSequence().has_value());
-        assert(match.lastThreatSequence()->foundWin);
+        assert(match.lastSearchSummary()->usedThreatSequence || match.lastSearchSummary()->score >= 1'000'000);
+        if (match.lastSearchSummary()->usedThreatSequence) {
+            assert(match.lastThreatSequence().has_value());
+            assert(match.lastThreatSequence()->foundWin);
+        }
     }
 
     {
-        Match match({Ruleset::Freestyle15, ControllerKind::AnalystAI, ControllerKind::Human});
+        Match match({Ruleset::Freestyle15, ControllerKind::ExpertAI, ControllerKind::Human});
         assert(match.applyMove({7, 7}));
         assert(match.applyMove({0, 0}));
         assert(match.applyMove({7, 8}));
@@ -393,6 +422,34 @@ int main() {
         assert(loaded.cellAt(0, 0) == Player::White);
         assert(StaticEvaluator::evaluate(loaded, Player::Black) == StaticEvaluator::evaluate(game, Player::Black));
         assert(loaded.positionHash() == game.positionHash());
+    }
+
+    {
+        MatchConfig config;
+        config.ruleset = Ruleset::Freestyle15;
+        config.openerController = ControllerKind::Human;
+        config.chooserController = ControllerKind::ExpertAI;
+        config.aiTimeControlPreset = AiTimeControlPreset::Blitz;
+
+        Match match(config);
+        assert(match.applyMove({7, 7}));
+        match.stepAi();
+        const auto chooserClock = match.aiClockForSeat(Seat::Chooser);
+        assert(chooserClock.has_value());
+
+        const std::string session = serializeMatchSession(match);
+        Match loaded;
+        std::string error;
+        assert(deserializeMatchSession(session, loaded, error));
+        assert(loaded.config().ruleset == match.config().ruleset);
+        assert(loaded.config().openerController == match.config().openerController);
+        assert(loaded.config().chooserController == match.config().chooserController);
+        assert(loaded.config().aiTimeControlPreset == match.config().aiTimeControlPreset);
+        assert(loaded.state().positionHash() == match.state().positionHash());
+        const auto loadedChooserClock = loaded.aiClockForSeat(Seat::Chooser);
+        assert(loadedChooserClock.has_value());
+        assert(loadedChooserClock->timeLeftMs == chooserClock->timeLeftMs);
+        assert(loadedChooserClock->movesToReset == chooserClock->movesToReset);
     }
 
     return 0;

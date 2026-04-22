@@ -1,6 +1,6 @@
 # gomoku-minimax
 
-C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that grows from a simple heuristic bot into a stronger threat-aware searcher.
+Threat-aware C++20 Gomoku engine with an SFML GUI, CLI tools, opening book support, and tournament-style search improvements.
 
 ## Features
 
@@ -12,17 +12,18 @@ C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that 
   - `club`
   - `tactical`
   - `expert`
-  - `analyst`
 - Interfaces:
   - `gomoku_ui` SFML desktop app
   - `gomoku_cli` text interface
 - Engine features:
   - threat-aware static evaluation
   - alpha-beta / PVS search
-  - transposition table
+  - clustered transposition table with cross-move reuse
   - tactical threat-sequence search
   - opening book
-  - time-governed iterative deepening
+  - iterative deepening with time governor
+  - live search progress reporting in the GUI
+  - AI-only OTB-style clock presets in the GUI
 - Tooling:
   - self-play runner
   - search benchmark runner
@@ -66,29 +67,40 @@ GUI:
 ./build/gomoku_ui
 ```
 
+The GUI uses AI-only clock presets instead of a fixed per-move limit:
+- `blitz`: `5:00 / 40`
+- `fast`: `15:00 / 60`
+- `slow`: `30:00 / 80`
+
+The search panel shows both:
+- `Depth`: deepest ply actually visited, including forcing extensions
+- `Completed depth`: last fully completed iterative-deepening pass
+
 CLI:
 
 ```bash
 ./build/gomoku_cli
-./build/gomoku_cli freestyle15 human analyst 500
+./build/gomoku_cli freestyle15 human expert 500
 ```
+
+In the CLI and protocol tools, the final numeric argument is still a search time budget in milliseconds.
 
 CLI usage:
 
 ```text
-gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|ai] [human|rookie|club|tactical|expert|analyst|ai] [move_time_ms]
+gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|ai] [human|rookie|club|tactical|expert|ai] [move_time_ms]
 ```
-
-`analyst` currently uses the same move selection path as `expert`.
 
 ## GUI Controls
 
 - `1` / `2`: switch ruleset
 - `O` / `P`: cycle opener / chooser controller
-- `[` / `]` or `,` / `.`: cycle AI move time
+- `[` / `]` or `,` / `.`: cycle AI clock preset
 - `Space`: toggle AI-vs-AI autoplay when both seats are AI
 - `R`: restart
 - `U`: undo
+- `X`: save game to `gomoku_saved_game.txt`
+- `L`: load game from `gomoku_saved_game.txt`
 - `H`: heatmap overlay
 - `T`: threat labels
 - `C`: top-candidate markers
@@ -101,7 +113,7 @@ gomoku_cli [freestyle15|standard15] [human|rookie|club|tactical|expert|analyst|a
 Self-play:
 
 ```bash
-./build/gomoku_selfplay 4 freestyle15 expert analyst 500
+./build/gomoku_selfplay 4 freestyle15 expert expert 500
 ```
 
 Search benchmark:
@@ -151,9 +163,16 @@ ctest --test-dir build --output-on-failure
 - `src/cli/`: text interface
 - `src/tools/`: self-play and benchmark tools
 - `tests/`: smoke and tactical regression suites
+- `Book/`: opening-book source files
 - `PLAN.md`: checkpoint roadmap
 - `STATUS.md`: implementation log and current status
+- `UPGRADE_IDEAS.md`: ranked engine-improvement notes
 
 ## Current State
 
-The project is currently through Checkpoint 5 of the roadmap: playable game, multiple AI levels, tactical threat analysis, opening-book support, tournament-style search improvements, and time-governed search.
+Current branch highlights:
+- GUI play with human or AI seats
+- opening-book play in the main engine
+- threat-aware search with tactical sequence support
+- AI-only repeating time controls in the GUI
+- save/load support for GUI games

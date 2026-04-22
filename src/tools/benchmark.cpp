@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "gomoku/ClubAI.hpp"
-#include "gomoku/AnalystAI.hpp"
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/TacticalAI.hpp"
 #include "gomoku/Threats.hpp"
@@ -31,8 +30,6 @@ gomoku::SearchResult runController(gomoku::ControllerKind controller, const gomo
             return gomoku::ClubAI::chooseMove(state, state.sideToMove(), config);
         case gomoku::ControllerKind::TacticalAI:
             return gomoku::TacticalAI::chooseMove(state, state.sideToMove(), config);
-        case gomoku::ControllerKind::AnalystAI:
-            return gomoku::AnalystAI::chooseMove(state, state.sideToMove(), config);
         case gomoku::ControllerKind::ExpertAI:
         default:
             return gomoku::ExpertAI::chooseMove(state, state.sideToMove(), config);
@@ -49,7 +46,7 @@ int main(int argc, char** argv) {
 
     if (argc >= 2) {
         if (!tryParseController(argv[1], controller) || controller == ControllerKind::Human || controller == ControllerKind::RookieAI) {
-            std::cerr << "Benchmark controller must be club, tactical, expert, or analyst.\n";
+            std::cerr << "Benchmark controller must be club, tactical, or expert.\n";
             return 1;
         }
     }

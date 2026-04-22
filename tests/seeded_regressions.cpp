@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <cassert>
 #include <cstdlib>
 #include <initializer_list>
 #include <iostream>
@@ -7,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "TestAssert.hpp"
 #include "gomoku/ExpertAI.hpp"
 #include "gomoku/GameState.hpp"
 #include "gomoku/Rules.hpp"

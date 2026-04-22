@@ -7,6 +7,7 @@ namespace gomoku {
 namespace {
 
 constexpr int kAnnotatedPositionFormatVersion = 1;
+constexpr int kMatchSessionFormatVersion = 1;
 
 std::string serializeMoveList(const std::vector<Move>& moves) {
     std::ostringstream output;
@@ -100,6 +101,179 @@ bool deserializeReplay(const RulesSpec& rules, std::string_view text, GameState&
         return false;
     }
 
+    error.clear();
+    return true;
+}
+
+std::string serializeMatchSession(const Match& match) {
+    std::ostringstream output;
+    output << "session_format=" << kMatchSessionFormatVersion << '\n';
+    output << "ruleset=" << toString(match.config().ruleset) << '\n';
+    output << "opener=" << toString(match.config().openerController) << '\n';
+    output << "chooser=" << toString(match.config().chooserController) << '\n';
+    output << "ai_move_time_ms=" << match.config().aiMoveTimeMs << '\n';
+    output << "ai_time_control=" << toString(match.config().aiTimeControlPreset) << '\n';
+    if (const auto openerClock = match.aiClockForSeat(Seat::Opener)) {
+        output << "opener_clock " << openerClock->timeLeftMs << ' ' << openerClock->movesPlayedInPeriod << '\n';
+    }
+    if (const auto chooserClock = match.aiClockForSeat(Seat::Chooser)) {
+        output << "chooser_clock " << chooserClock->timeLeftMs << ' ' << chooserClock->movesPlayedInPeriod << '\n';
+    }
+
+    for (const Action& action : match.state().actions()) {
+        if (action.kind == Action::Kind::Move) {
+            output << "move " << moveToString(action.move) << '\n';
+        } else {
+            output << "swap " << toString(action.swapChoice) << '\n';
+        }
+    }
+
+    return output.str();
+}
+
+bool deserializeMatchSession(std::string_view text, Match& match, std::string& error) {
+    std::vector<std::string> lines;
+    std::istringstream input {std::string(text)};
+    std::string line;
+
+    MatchConfig config;
+    config.aiTimeControlPreset = AiTimeControlPreset::Blitz;
+    std::optional<std::pair<std::int64_t, int>> openerClock;
+    std::optional<std::pair<std::int64_t, int>> chooserClock;
+
+    while (std::getline(input, line)) {
+        if (line.empty()) {
+            continue;
+        }
+        lines.push_back(line);
+
+        if (line.rfind("session_format=", 0) == 0) {
+            std::istringstream value(line.substr(15));
+            int version = 0;
+            if (!(value >> version)) {
+                error = "Invalid match-session format version: " + line.substr(15);
+                return false;
+            }
+            if (version > kMatchSessionFormatVersion) {
+                error = "Unsupported match-session format version: " + std::to_string(version);
+                return false;
+            }
+            continue;
+        }
+        if (line.rfind("ruleset=", 0) == 0) {
+            if (!tryParseRuleset(line.substr(8), config.ruleset)) {
+                error = "Invalid ruleset in match session: " + line.substr(8);
+                return false;
+            }
+            continue;
+        }
+        if (line.rfind("opener=", 0) == 0) {
+            if (!tryParseController(line.substr(7), config.openerController)) {
+                error = "Invalid opener controller in match session: " + line.substr(7);
+                return false;
+            }
+            continue;
+        }
+        if (line.rfind("chooser=", 0) == 0) {
+            if (!tryParseController(line.substr(8), config.chooserController)) {
+                error = "Invalid chooser controller in match session: " + line.substr(8);
+                return false;
+            }
+            continue;
+        }
+        if (line.rfind("ai_move_time_ms=", 0) == 0) {
+            std::istringstream value(line.substr(16));
+            if (!(value >> config.aiMoveTimeMs) || config.aiMoveTimeMs <= 0) {
+                error = "Invalid ai_move_time_ms in match session: " + line.substr(16);
+                return false;
+            }
+            continue;
+        }
+        if (line.rfind("ai_time_control=", 0) == 0) {
+            if (!tryParseAiTimeControlPreset(line.substr(16), config.aiTimeControlPreset)) {
+                error = "Invalid ai_time_control in match session: " + line.substr(16);
+                return false;
+            }
+            continue;
+        }
+        if (line.rfind("opener_clock ", 0) == 0) {
+            std::istringstream value(line.substr(13));
+            std::int64_t timeLeftMs = -1;
+            int movesPlayed = 0;
+            if (!(value >> timeLeftMs >> movesPlayed)) {
+                error = "Invalid opener_clock line in match session";
+                return false;
+            }
+            openerClock = std::pair<std::int64_t, int> {timeLeftMs, movesPlayed};
+            continue;
+        }
+        if (line.rfind("chooser_clock ", 0) == 0) {
+            std::istringstream value(line.substr(14));
+            std::int64_t timeLeftMs = -1;
+            int movesPlayed = 0;
+            if (!(value >> timeLeftMs >> movesPlayed)) {
+                error = "Invalid chooser_clock line in match session";
+                return false;
+            }
+            chooserClock = std::pair<std::int64_t, int> {timeLeftMs, movesPlayed};
+            continue;
+        }
+    }
+
+    Match loaded(config);
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        const std::string& current = lines[index];
+        if (current.empty()
+            || current.rfind("session_format=", 0) == 0
+            || current.rfind("ruleset=", 0) == 0
+            || current.rfind("opener=", 0) == 0
+            || current.rfind("chooser=", 0) == 0
+            || current.rfind("ai_move_time_ms=", 0) == 0
+            || current.rfind("ai_time_control=", 0) == 0
+            || current.rfind("opener_clock ", 0) == 0
+            || current.rfind("chooser_clock ", 0) == 0) {
+            continue;
+        }
+
+        const int lineNumber = static_cast<int>(index + 1);
+        std::istringstream lineStream(current);
+        std::string command;
+        lineStream >> command;
+
+        if (command == "move") {
+            std::string moveText;
+            lineStream >> moveText;
+            Move move;
+            if (!tryParseMove(moveText, move) || !loaded.applyMove(move)) {
+                error = "Invalid move in match session on line " + std::to_string(lineNumber) + ": " + moveText;
+                return false;
+            }
+            continue;
+        }
+
+        if (command == "swap") {
+            std::string choiceText;
+            lineStream >> choiceText;
+            SwapChoice choice;
+            if (!tryParseSwapChoice(choiceText, choice) || !loaded.applySwapChoice(choice)) {
+                error = "Invalid swap choice in match session on line " + std::to_string(lineNumber) + ": " + choiceText;
+                return false;
+            }
+            continue;
+        }
+
+        error = "Unknown match-session command on line " + std::to_string(lineNumber) + ": " + command;
+        return false;
+    }
+
+    if (openerClock.has_value()) {
+        loaded.setAiClockState(Seat::Opener, openerClock->first, openerClock->second);
+    }
+    if (chooserClock.has_value()) {
+        loaded.setAiClockState(Seat::Chooser, chooserClock->first, chooserClock->second);
+    }
+    loaded.clearUndoHistory();
+    match = std::move(loaded);
     error.clear();
     return true;
 }

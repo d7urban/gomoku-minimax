@@ -281,7 +281,7 @@ std::vector<std::tuple<int, int, int>> readBoardBlock() {
 }
 
 void printUsage() {
-    std::cerr << "Usage: gomoku_gomocup [--controller rookie|club|tactical|expert|analyst] "
+    std::cerr << "Usage: gomoku_gomocup [--controller rookie|club|tactical|expert] "
                  "[--time-ms N]\n";
 }
 

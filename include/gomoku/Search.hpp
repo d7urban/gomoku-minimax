@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -10,6 +11,8 @@
 #include "gomoku/Threats.hpp"
 
 namespace gomoku {
+
+struct SearchSummary;
 
 struct SearchConfig {
     int maxDepth {64};
@@ -30,10 +33,12 @@ struct SearchConfig {
     // all-unknown so tests and in-process callers that do not care about
     // clocks pay no cost.
     ClockState clock {};
+    std::function<void(const SearchSummary&)> progressCallback {};
 };
 
 struct SearchSummary {
     int depthReached {0};
+    int maxDepthVisited {0};
     int score {0};
     int elapsedMs {0};
     std::uint64_t nodes {0};

@@ -1,12 +1,15 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <mutex>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <SFML/Graphics.hpp>
@@ -21,8 +24,10 @@ namespace {
 
 using gomoku::CandidateMove;
 using gomoku::ControllerKind;
+using gomoku::AiTimeControlPreset;
 using gomoku::Match;
 using gomoku::MatchConfig;
+using gomoku::MatchAiClockView;
 using gomoku::Move;
 using gomoku::Ruleset;
 using gomoku::SwapChoice;
@@ -36,13 +41,22 @@ constexpr std::array<ControllerKind, 6> kControllerCycle = {
     ControllerKind::ClubAI,
     ControllerKind::TacticalAI,
     ControllerKind::ExpertAI,
-    ControllerKind::AnalystAI,
 };
 
-constexpr std::array<int, 5> kMoveTimeChoices = {100, 250, 500, 1000, 2000};
+constexpr std::array<AiTimeControlPreset, 3> kTimeControlChoices = {
+    AiTimeControlPreset::Blitz,
+    AiTimeControlPreset::Fast,
+    AiTimeControlPreset::Slow,
+};
 
 bool isAiController(ControllerKind controller) {
     return controller != ControllerKind::Human;
+}
+
+bool usesSearchEngine(ControllerKind controller) {
+    return controller == ControllerKind::ClubAI
+        || controller == ControllerKind::TacticalAI
+        || controller == ControllerKind::ExpertAI;
 }
 
 ControllerKind cycleController(ControllerKind controller, int delta) {
@@ -53,33 +67,41 @@ ControllerKind cycleController(ControllerKind controller, int delta) {
     return kControllerCycle[static_cast<std::size_t>(nextIndex)];
 }
 
-int cycleMoveTime(int currentMs, int delta) {
-    auto found = std::find(kMoveTimeChoices.begin(), kMoveTimeChoices.end(), currentMs);
-    int index = found == kMoveTimeChoices.end() ? 0 : static_cast<int>(std::distance(kMoveTimeChoices.begin(), found));
-    if (found == kMoveTimeChoices.end()) {
-        for (std::size_t choice = 0; choice < kMoveTimeChoices.size(); ++choice) {
-            if (currentMs <= kMoveTimeChoices[choice]) {
-                index = static_cast<int>(choice);
-                break;
-            }
-        }
-    }
-    const int size = static_cast<int>(kMoveTimeChoices.size());
+AiTimeControlPreset cycleTimeControl(AiTimeControlPreset current, int delta) {
+    auto found = std::find(kTimeControlChoices.begin(), kTimeControlChoices.end(), current);
+    const int index = found == kTimeControlChoices.end() ? 0 : static_cast<int>(std::distance(kTimeControlChoices.begin(), found));
+    const int size = static_cast<int>(kTimeControlChoices.size());
     const int nextIndex = (index + delta + size) % size;
-    return kMoveTimeChoices[static_cast<std::size_t>(nextIndex)];
+    return kTimeControlChoices[static_cast<std::size_t>(nextIndex)];
 }
 
-std::string formatMoveTime(int moveTimeMs) {
-    if (moveTimeMs < 1000) {
-        return std::to_string(moveTimeMs) + " ms";
+std::string formatClockMillis(std::int64_t timeMs) {
+    if (timeMs < 0) {
+        return "-";
     }
+    const std::int64_t totalSeconds = timeMs / 1000;
+    const std::int64_t minutes = totalSeconds / 60;
+    const std::int64_t seconds = totalSeconds % 60;
+    std::string text = std::to_string(minutes);
+    text += ':';
+    if (seconds < 10) {
+        text += '0';
+    }
+    text += std::to_string(seconds);
+    return text;
+}
 
-    const int wholeSeconds = moveTimeMs / 1000;
-    const int fraction = (moveTimeMs % 1000) / 100;
-    if (fraction == 0) {
-        return std::to_string(wholeSeconds) + " s";
+std::string formatTimeControl(AiTimeControlPreset preset) {
+    const gomoku::AiTimeControlSpec spec = gomoku::aiTimeControlSpec(preset);
+    if (spec.periodTimeMs <= 0 || spec.periodMoves <= 0) {
+        return std::string(gomoku::toString(preset));
     }
-    return std::to_string(wholeSeconds) + "." + std::to_string(fraction) + " s";
+    return std::string(gomoku::toString(preset)) + " " + formatClockMillis(spec.periodTimeMs) + "/"
+        + std::to_string(spec.periodMoves);
+}
+
+std::string formatSeatClock(const MatchAiClockView& clock) {
+    return formatClockMillis(clock.timeLeftMs) + " (" + std::to_string(clock.movesToReset) + " to reset)";
 }
 
 struct OverlayState {
@@ -113,6 +135,20 @@ struct UiControlState {
     sf::Clock feedbackClock;
 };
 
+struct AiSearchState {
+    bool running {false};
+    bool finished {false};
+    bool moveSearch {false};
+    int actionCount {-1};
+    gomoku::Player sideToMove {gomoku::Player::None};
+    std::thread worker;
+    std::mutex mutex;
+    std::optional<gomoku::SearchSummary> liveSummary;
+    std::optional<gomoku::SearchResult> completedResult;
+    std::optional<SwapChoice> completedSwapChoice;
+    std::int64_t elapsedMs {0};
+};
+
 struct StatusLine {
     std::string text;
     bool bold {false};
@@ -130,6 +166,7 @@ struct UiLayout {
 };
 
 constexpr int kFeedbackDurationMs = 2400;
+constexpr std::string_view kSavedGameFilename = "gomoku_saved_game.txt";
 bool bothSeatsAi(const Match& match) {
     return isAiController(match.config().openerController) && isAiController(match.config().chooserController);
 }
@@ -145,6 +182,72 @@ bool feedbackVisible(const UiControlState& controls) {
 void setFeedback(UiControlState& controls, std::string text) {
     controls.feedbackText = std::move(text);
     controls.feedbackClock.restart();
+}
+
+void finishAiSearchWorker(AiSearchState& state) {
+    if (state.worker.joinable()) {
+        state.worker.join();
+    }
+    {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        state.liveSummary.reset();
+        state.completedResult.reset();
+        state.completedSwapChoice.reset();
+        state.elapsedMs = 0;
+    }
+    state.running = false;
+    state.finished = false;
+    state.moveSearch = false;
+}
+
+std::optional<gomoku::SearchSummary> currentLiveSummary(AiSearchState& state) {
+    std::lock_guard<std::mutex> lock(state.mutex);
+    return state.liveSummary;
+}
+
+void startAiSearch(const Match& match, AiSearchState& state) {
+    finishAiSearchWorker(state);
+    state.running = true;
+    state.finished = false;
+    state.moveSearch = !match.state().isSwapDecisionPending();
+    state.actionCount = match.state().actionCount();
+    state.sideToMove = match.state().sideToMove();
+    {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        state.liveSummary.reset();
+        state.completedResult.reset();
+        state.completedSwapChoice.reset();
+        state.elapsedMs = 0;
+    }
+
+    Match snapshot = match;
+    state.worker = std::thread([snapshot, &state]() mutable {
+        const auto start = std::chrono::steady_clock::now();
+        if (snapshot.state().isSwapDecisionPending()) {
+            const SwapChoice choice = snapshot.chooseAiSwapChoice();
+            const auto end = std::chrono::steady_clock::now();
+            std::lock_guard<std::mutex> lock(state.mutex);
+            state.completedSwapChoice = choice;
+            state.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+            state.finished = true;
+            return;
+        }
+
+        const gomoku::SearchResult result = snapshot.searchAiTurn([&state](const gomoku::SearchSummary& summary) {
+            std::lock_guard<std::mutex> lock(state.mutex);
+            state.liveSummary = summary;
+        });
+        const auto end = std::chrono::steady_clock::now();
+        std::lock_guard<std::mutex> lock(state.mutex);
+        state.completedResult = result;
+        state.liveSummary = result.summary;
+        state.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        state.finished = true;
+    });
+}
+
+std::filesystem::path savedGamePath() {
+    return std::filesystem::current_path() / std::string(kSavedGameFilename);
 }
 
 std::unique_ptr<sf::Font> loadUiFont() {
@@ -531,7 +634,8 @@ void drawBoard(sf::RenderWindow& window, const Match& match, float left, float t
 }
 
 std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlState& controls, const OverlayState& overlay,
-    const AnalysisOverlay& analysis, const ThreatAnalysisView& threatAnalysis) {
+    const AnalysisOverlay& analysis, const ThreatAnalysisView& threatAnalysis,
+    const std::optional<gomoku::SearchSummary>& liveSummary, bool aiThinking) {
     std::vector<StatusLine> lines;
     const auto addLine = [&](std::string text, bool bold = false) {
         lines.push_back({std::move(text), bold});
@@ -543,7 +647,7 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
     addLine("Rules: " + std::string(match.state().rules().name));
     addLine("Result: " + std::string(gomoku::toString(match.state().result())));
     addLine("Moves: " + std::to_string(match.state().moveCount()));
-    addLine("AI time: " + formatMoveTime(match.config().aiMoveTimeMs));
+    addLine("AI clock: " + formatTimeControl(match.config().aiTimeControlPreset));
     addLine("Opener: " + std::string(gomoku::toString(match.config().openerController)));
     addLine("Chooser: " + std::string(gomoku::toString(match.config().chooserController)));
     if (bothSeatsAi(match)) {
@@ -558,6 +662,12 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
     addBlank();
 
     if (!match.state().isGameOver()) {
+        if (const auto openerClock = match.aiClockForSeat(gomoku::Seat::Opener)) {
+            addLine("Opener clock: " + formatSeatClock(*openerClock));
+        }
+        if (const auto chooserClock = match.aiClockForSeat(gomoku::Seat::Chooser)) {
+            addLine("Chooser clock: " + formatSeatClock(*chooserClock));
+        }
         if (match.state().isSwapDecisionPending()) {
             addLine("Swap choice pending: " + std::string(gomoku::toString(match.seatToAct())));
             addLine("Press K to keep or S to swap.");
@@ -571,23 +681,31 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
         }
     }
 
-    if (const auto& summary = match.lastSearchSummary()) {
+    const std::optional<gomoku::SearchSummary> displayedSummary = liveSummary.has_value()
+        ? liveSummary
+        : match.lastSearchSummary();
+    if (displayedSummary.has_value()) {
+        const gomoku::SearchSummary& summary = *displayedSummary;
         addBlank();
-        addLine("Last search:");
-        addLine("Depth: " + std::to_string(summary->depthReached));
-        addLine("Eval: " + std::to_string(summary->score));
-        addLine("Time: " + std::to_string(summary->elapsedMs) + " ms");
-        addLine("Nodes: " + std::to_string(summary->nodes));
-        addLine("TT hits: " + std::to_string(summary->ttHits));
-        addLine("Threat nodes: " + std::to_string(summary->threatNodes));
-        if (summary->usedThreatSequence) {
-            addLine("Threat line: " + std::to_string(summary->threatSequenceLength) + " steps");
+        addLine(aiThinking ? "Current search:" : "Last search:");
+        addLine("Max depth: " + std::to_string(summary.maxDepthVisited));
+        addLine("Completed depth: " + std::to_string(summary.depthReached));
+        if (aiThinking && summary.depthReached == 0) {
+            addLine("Status: searching", true);
         }
-        if (summary->usedOpeningBook) {
-            addLine("Book line: " + summary->openingBookName);
+        addLine("Eval: " + std::to_string(summary.score));
+        addLine("Time: " + std::to_string(summary.elapsedMs) + " ms");
+        addLine("Nodes: " + std::to_string(summary.nodes));
+        addLine("TT hits: " + std::to_string(summary.ttHits));
+        addLine("Threat nodes: " + std::to_string(summary.threatNodes));
+        if (summary.usedThreatSequence) {
+            addLine("Threat line: " + std::to_string(summary.threatSequenceLength) + " steps");
         }
-        if (!summary->principalVariation.empty()) {
-            addLine("PV: " + moveListText(summary->principalVariation, 6));
+        if (summary.usedOpeningBook) {
+            addLine("Book line: " + summary.openingBookName);
+        }
+        if (!summary.principalVariation.empty()) {
+            addLine("PV: " + moveListText(summary.principalVariation, 6));
         }
     }
 
@@ -604,7 +722,7 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
     addLine("2 standard15", match.config().ruleset == Ruleset::Standard15);
     addLine("O opener: " + std::string(gomoku::toString(match.config().openerController)));
     addLine("P chooser: " + std::string(gomoku::toString(match.config().chooserController)));
-    addLine("time (-/+): " + formatMoveTime(match.config().aiMoveTimeMs));
+    addLine("time (-/+): " + formatTimeControl(match.config().aiTimeControlPreset));
     addLine("Space autoplay", autoplayActive(match, controls));
     addLine("H heatmap", overlay.showHeatmap);
     addLine("T labels", overlay.showThreatLabels);
@@ -629,6 +747,8 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
     addLine("U undo");
     addLine("Space toggle autoplay");
     addLine("A analyze threats");
+    addLine("X save game");
+    addLine("L load game");
     addLine("Left/Right threat step");
     addLine("Esc clear analysis");
     if (match.state().isSwapDecisionPending()) {
@@ -817,6 +937,7 @@ sf::RectangleShape makePanel(sf::Vector2f position, sf::Vector2f size) {
 
 int main(int argc, char** argv) {
     MatchConfig config;
+    config.aiTimeControlPreset = AiTimeControlPreset::Blitz;
     if (argc >= 2) {
         Ruleset ruleset;
         if (gomoku::tryParseRuleset(argv[1], ruleset)) {
@@ -851,6 +972,7 @@ int main(int argc, char** argv) {
     OverlayState overlay;
     AnalysisOverlay analysis;
     ThreatAnalysisView threatAnalysis;
+    AiSearchState aiSearch;
 
     sf::RenderWindow window(sf::VideoMode(1380, 900), "Gomoku - Checkpoint 5");
     window.setFramerateLimit(60);
@@ -859,27 +981,44 @@ int main(int argc, char** argv) {
     sf::Clock aiClock;
 
     const auto replaceMatch = [&](const MatchConfig& nextConfig) {
+        finishAiSearchWorker(aiSearch);
         match = Match(nextConfig);
         clearThreatAnalysis(threatAnalysis);
         aiClock.restart();
     };
 
-    const auto loadIntoMatch = [&](const gomoku::GameState& loadedState) {
-        MatchConfig next = match.config();
-        next.ruleset = loadedState.rules().ruleset;
-        replaceMatch(next);
-        for (const auto& action : loadedState.actions()) {
-            if (action.kind == gomoku::Action::Kind::Move) {
-                if (!match.applyMove(action.move)) {
-                    return false;
-                }
-            } else {
-                if (!match.applySwapChoice(action.swapChoice)) {
-                    return false;
-                }
-            }
+    const auto saveCurrentGame = [&]() {
+        std::ofstream output(savedGamePath(), std::ios::out | std::ios::trunc);
+        if (!output) {
+            setFeedback(controls, "Save failed");
+            return;
         }
-        return true;
+        output << gomoku::serializeMatchSession(match);
+        if (!output.good()) {
+            setFeedback(controls, "Save failed");
+            return;
+        }
+        setFeedback(controls, "Saved " + std::string(kSavedGameFilename));
+    };
+
+    const auto loadSavedGame = [&]() {
+        std::ifstream input(savedGamePath());
+        if (!input) {
+            setFeedback(controls, "Load failed");
+            return;
+        }
+        std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        Match loaded;
+        std::string error;
+        if (!gomoku::deserializeMatchSession(text, loaded, error)) {
+            setFeedback(controls, "Load failed: " + error);
+            return;
+        }
+        finishAiSearchWorker(aiSearch);
+        match = std::move(loaded);
+        clearThreatAnalysis(threatAnalysis);
+        aiClock.restart();
+        setFeedback(controls, "Loaded " + std::string(kSavedGameFilename));
     };
 
     while (window.isOpen()) {
@@ -892,6 +1031,25 @@ int main(int argc, char** argv) {
             }
 
             if (event.type == sf::Event::KeyPressed) {
+                const bool aiBusy = aiSearch.running;
+                const bool mutatesMatch = event.key.code == sf::Keyboard::R
+                    || event.key.code == sf::Keyboard::U
+                    || event.key.code == sf::Keyboard::K
+                    || event.key.code == sf::Keyboard::S
+                    || event.key.code == sf::Keyboard::Num1
+                    || event.key.code == sf::Keyboard::Num2
+                    || event.key.code == sf::Keyboard::O
+                    || event.key.code == sf::Keyboard::P
+                    || event.key.code == sf::Keyboard::LBracket
+                    || event.key.code == sf::Keyboard::Comma
+                    || event.key.code == sf::Keyboard::RBracket
+                    || event.key.code == sf::Keyboard::Period
+                    || event.key.code == sf::Keyboard::L;
+                if (aiBusy && mutatesMatch) {
+                    setFeedback(controls, "Wait for AI to finish");
+                    continue;
+                }
+
                 if (event.key.code == sf::Keyboard::R) {
                     match.reset();
                     clearThreatAnalysis(threatAnalysis);
@@ -912,14 +1070,14 @@ int main(int argc, char** argv) {
                     MatchConfig next = match.config();
                     next.ruleset = Ruleset::Freestyle15;
                     next.openerController = ControllerKind::Human;
-                    next.chooserController = ControllerKind::AnalystAI;
+                    next.chooserController = ControllerKind::ExpertAI;
                     replaceMatch(next);
                     setFeedback(controls, "Rules: freestyle15");
                 } else if (event.key.code == sf::Keyboard::Num2) {
                     MatchConfig next = match.config();
                     next.ruleset = Ruleset::Standard15;
                     next.openerController = ControllerKind::Human;
-                    next.chooserController = ControllerKind::AnalystAI;
+                    next.chooserController = ControllerKind::ExpertAI;
                     replaceMatch(next);
                     setFeedback(controls, "Rules: standard15");
                 } else if (event.key.code == sf::Keyboard::O) {
@@ -932,16 +1090,16 @@ int main(int argc, char** argv) {
                     next.chooserController = cycleController(next.chooserController, 1);
                     replaceMatch(next);
                     setFeedback(controls, "Chooser: " + std::string(gomoku::toString(match.config().chooserController)));
-                } else if (event.key.code == sf::Keyboard::LBracket || event.key.code == sf::Keyboard::Comma || event.key.code == sf::Keyboard::Left) {
+                } else if (event.key.code == sf::Keyboard::LBracket || event.key.code == sf::Keyboard::Comma) {
                     MatchConfig next = match.config();
-                    next.aiMoveTimeMs = cycleMoveTime(next.aiMoveTimeMs, -1);
+                    next.aiTimeControlPreset = cycleTimeControl(next.aiTimeControlPreset, -1);
                     replaceMatch(next);
-                    setFeedback(controls, "AI time: " + formatMoveTime(match.config().aiMoveTimeMs));
-                } else if (event.key.code == sf::Keyboard::RBracket || event.key.code == sf::Keyboard::Period || event.key.code == sf::Keyboard::Right) {
+                    setFeedback(controls, "AI clock: " + formatTimeControl(match.config().aiTimeControlPreset));
+                } else if (event.key.code == sf::Keyboard::RBracket || event.key.code == sf::Keyboard::Period) {
                     MatchConfig next = match.config();
-                    next.aiMoveTimeMs = cycleMoveTime(next.aiMoveTimeMs, 1);
+                    next.aiTimeControlPreset = cycleTimeControl(next.aiTimeControlPreset, 1);
                     replaceMatch(next);
-                    setFeedback(controls, "AI time: " + formatMoveTime(match.config().aiMoveTimeMs));
+                    setFeedback(controls, "AI clock: " + formatTimeControl(match.config().aiTimeControlPreset));
                 } else if (event.key.code == sf::Keyboard::Space) {
                     if (bothSeatsAi(match)) {
                         controls.autoplayEnabled = !controls.autoplayEnabled;
@@ -958,6 +1116,10 @@ int main(int argc, char** argv) {
                     overlay.showTopCandidates = !overlay.showTopCandidates;
                 } else if (event.key.code == sf::Keyboard::A) {
                     runThreatAnalysis(match, threatAnalysis);
+                } else if (event.key.code == sf::Keyboard::X) {
+                    saveCurrentGame();
+                } else if (event.key.code == sf::Keyboard::L) {
+                    loadSavedGame();
                 } else if (event.key.code == sf::Keyboard::Escape) {
                     clearThreatAnalysis(threatAnalysis);
                 } else if (event.key.code == sf::Keyboard::Right) {
@@ -983,15 +1145,50 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (match.isAiTurn() && !match.state().isGameOver() && (!bothSeatsAi(match) || controls.autoplayEnabled)
+        if (aiSearch.running) {
+            bool finished = false;
+            std::optional<gomoku::SearchResult> completedResult;
+            std::optional<SwapChoice> completedSwapChoice;
+            std::int64_t elapsedMs = 0;
+            const int expectedActionCount = aiSearch.actionCount;
+            const gomoku::Player expectedSideToMove = aiSearch.sideToMove;
+            {
+                std::lock_guard<std::mutex> lock(aiSearch.mutex);
+                finished = aiSearch.finished;
+                if (finished) {
+                    completedResult = aiSearch.completedResult;
+                    completedSwapChoice = aiSearch.completedSwapChoice;
+                    elapsedMs = aiSearch.elapsedMs;
+                }
+            }
+            if (finished) {
+                finishAiSearchWorker(aiSearch);
+                if (match.state().actionCount() == expectedActionCount && match.state().sideToMove() == expectedSideToMove && match.isAiTurn()) {
+                    if (completedResult.has_value()) {
+                        match.commitAiSearchResult(*completedResult, elapsedMs);
+                    } else if (completedSwapChoice.has_value()) {
+                        match.commitAiSwapChoice(*completedSwapChoice, elapsedMs);
+                    }
+                    aiClock.restart();
+                    clearThreatAnalysis(threatAnalysis);
+                }
+            }
+        }
+
+        if (!aiSearch.running && match.isAiTurn() && !match.state().isGameOver() && (!bothSeatsAi(match) || controls.autoplayEnabled)
             && aiClock.getElapsedTime().asMilliseconds() > 60) {
-            match.stepAi();
+            if (match.state().isSwapDecisionPending() || !usesSearchEngine(match.controllerToAct())) {
+                match.stepAi();
+            } else {
+                startAiSearch(match, aiSearch);
+            }
             aiClock.restart();
             clearThreatAnalysis(threatAnalysis);
         }
 
         refreshAnalysis(match, analysis);
         invalidateThreatAnalysisIfStale(match, threatAnalysis);
+        const std::optional<gomoku::SearchSummary> liveSearchSummary = currentLiveSummary(aiSearch);
 
         const UiLayout layout = computeLayout(window.getSize(), match.state().boardSize());
 
@@ -1022,7 +1219,8 @@ int main(int argc, char** argv) {
             window.draw(statusPanel);
             window.draw(candidatePanel);
 
-            drawStatusLines(window, *font, buildStatusLines(match, controls, overlay, analysis, threatAnalysis),
+            drawStatusLines(window, *font,
+                buildStatusLines(match, controls, overlay, analysis, threatAnalysis, liveSearchSummary, aiSearch.running),
                 {statusPanelPos.x + layout.panelPadding, statusPanelPos.y + layout.panelPadding}, layout.statusCharacterSize, 1.05f);
 
             sf::Text candidateText;
@@ -1041,5 +1239,6 @@ int main(int argc, char** argv) {
         window.display();
     }
 
+    finishAiSearchWorker(aiSearch);
     return 0;
 }

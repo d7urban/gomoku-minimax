@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -29,7 +30,13 @@ enum class ControllerKind {
     ClubAI,
     TacticalAI,
     ExpertAI,
-    AnalystAI,
+};
+
+enum class AiTimeControlPreset {
+    FixedPerMove,
+    Blitz,
+    Fast,
+    Slow,
 };
 
 enum class Seat {
@@ -63,6 +70,11 @@ struct Action {
     static Action makeSwapChoice(SwapChoice choice);
 };
 
+struct AiTimeControlSpec {
+    std::int64_t periodTimeMs {0};
+    int periodMoves {0};
+};
+
 inline Player otherPlayer(Player player) {
     switch (player) {
         case Player::Black:
@@ -80,13 +92,16 @@ std::string_view toString(Player player);
 std::string_view toString(Ruleset ruleset);
 std::string_view toString(GameResult result);
 std::string_view toString(ControllerKind controller);
+std::string_view toString(AiTimeControlPreset preset);
 std::string_view toString(Seat seat);
 std::string_view toString(SwapChoice choice);
+AiTimeControlSpec aiTimeControlSpec(AiTimeControlPreset preset);
 
 std::string moveToString(Move move);
 bool tryParseMove(std::string_view text, Move& move);
 bool tryParseRuleset(std::string_view text, Ruleset& ruleset);
 bool tryParseController(std::string_view text, ControllerKind& controller);
+bool tryParseAiTimeControlPreset(std::string_view text, AiTimeControlPreset& preset);
 bool tryParseSwapChoice(std::string_view text, SwapChoice& choice);
 
 }  // namespace gomoku

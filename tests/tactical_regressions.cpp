@@ -1,9 +1,9 @@
 #include <algorithm>
-#include <cassert>
 #include <initializer_list>
 #include <optional>
 #include <vector>
 
+#include "TestAssert.hpp"
 #include "gomoku/ThreatSearch.hpp"
 
 namespace {

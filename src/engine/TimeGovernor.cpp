@@ -25,6 +25,13 @@ int expectedMovesLeft(Phase phase, const TimeGovernorConfig& cfg) {
     return std::max(1, cfg.expectedMovesMidgame);
 }
 
+int budgetMovesLeft(const ClockState& clock, Phase phase, const TimeGovernorConfig& cfg) {
+    if (clock.movesToReset > 0) {
+        return clock.movesToReset;
+    }
+    return expectedMovesLeft(phase, cfg);
+}
+
 double phaseScale(Phase phase, const TimeGovernorConfig& cfg) {
     switch (phase) {
         case Phase::Opening: return cfg.openingScale;
@@ -63,7 +70,7 @@ std::optional<MoveBudget> TimeGovernor::computeBaselineBudget(
     }
 
     const Phase phase = classifyPhase(clock, cfg);
-    const int movesLeft = expectedMovesLeft(phase, cfg);
+    const int movesLeft = budgetMovesLeft(clock, phase, cfg);
     const double scale = phaseScale(phase, cfg);
 
     const double baseline = (static_cast<double>(usable) / static_cast<double>(movesLeft)) * scale;
