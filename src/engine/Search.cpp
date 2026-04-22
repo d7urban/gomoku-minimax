@@ -215,6 +215,15 @@ struct RootSearchResult {
     int rootCandidateCount {0};
 };
 
+enum class CandidateStage {
+    Default,
+    OpeningLarge,
+    DefendSimpleFour,
+    DefendOpenThree,
+    ForcingRoot,
+    ForcingChild,
+};
+
 std::vector<Move> collectImmediateWinningMoves(const GameState& state, Player player) {
     std::vector<Move> winningMoves;
     winningMoves.reserve(4);
@@ -257,6 +266,96 @@ using Clock = std::chrono::steady_clock;
 struct VcfProbe {
     std::uint64_t nodeBudget {600};
     std::uint64_t nodes {0};
+
+    static std::vector<Move> collectNeighborhoodMoves(const GameState& state, std::optional<Move> anchor, int radius) {
+        std::vector<Move> moves;
+        const int boardSize = state.boardSize();
+        const std::vector<Player>& board = state.board();
+
+        if (anchor.has_value()) {
+            const int rowMin = std::max(0, anchor->row - radius);
+            const int rowMax = std::min(boardSize - 1, anchor->row + radius);
+            const int colMin = std::max(0, anchor->col - radius);
+            const int colMax = std::min(boardSize - 1, anchor->col + radius);
+            for (int row = rowMin; row <= rowMax; ++row) {
+                for (int col = colMin; col <= colMax; ++col) {
+                    const std::size_t index = static_cast<std::size_t>(row * boardSize + col);
+                    if (board[index] == Player::None) {
+                        moves.push_back({row, col});
+                    }
+                }
+            }
+            return moves;
+        }
+
+        const std::vector<std::uint8_t>& nearCounts = state.nearStoneCounts();
+        for (int row = 0; row < boardSize; ++row) {
+            for (int col = 0; col < boardSize; ++col) {
+                const std::size_t index = static_cast<std::size_t>(row * boardSize + col);
+                if (board[index] == Player::None && nearCounts[index] > 0) {
+                    moves.push_back({row, col});
+                }
+            }
+        }
+        return moves;
+    }
+
+    static int forcingScore(Move move, const MoveThreatInfo& info, std::optional<Move> anchor) {
+        int score = threatSeverityEnhanced(info);
+        if (anchor.has_value()) {
+            const int distance = std::max(std::abs(move.row - anchor->row), std::abs(move.col - anchor->col));
+            score -= distance;
+        }
+        return score;
+    }
+
+    static std::vector<CandidateMove> generateForcingRootMoves(const GameState& state, Player attacker) {
+        std::vector<CandidateMove> candidates;
+        const Player defender = otherPlayer(attacker);
+        const bool defenderHasFour = state.hasThreatAtLeast(defender, ThreatType::SimpleFour);
+        const std::vector<Move> moves = collectNeighborhoodMoves(state, std::nullopt, 2);
+        candidates.reserve(moves.size());
+
+        for (const Move& move : moves) {
+            const MoveThreatInfo attackInfo = state.threatInfoAt(move, attacker);
+            const MoveThreatInfo defendInfo = state.threatInfoAt(move, defender);
+            const bool createsForcingThreat = threatSeverity(attackInfo.best) >= threatSeverity(ThreatType::SimpleFour);
+            if (defenderHasFour) {
+                const bool blocksImmediateThreat = threatSeverity(defendInfo.best) >= threatSeverity(ThreatType::OpenFour);
+                if (blocksImmediateThreat && createsForcingThreat) {
+                    candidates.push_back({move, attackInfo, forcingScore(move, attackInfo, state.lastPlacedMove())});
+                }
+                continue;
+            }
+            if (!createsForcingThreat) {
+                continue;
+            }
+            candidates.push_back({move, attackInfo, forcingScore(move, attackInfo, state.lastPlacedMove())});
+        }
+
+        std::stable_sort(candidates.begin(), candidates.end(), [](const CandidateMove& left, const CandidateMove& right) {
+            return left.score > right.score;
+        });
+        return candidates;
+    }
+
+    static std::vector<CandidateMove> generateForcingChildMoves(const GameState& state, Player attacker) {
+        const std::optional<Move> anchor = state.lastPlacedMove();
+        std::vector<CandidateMove> candidates;
+        const std::vector<Move> moves = collectNeighborhoodMoves(state, anchor, 4);
+        candidates.reserve(moves.size());
+        for (const Move& move : moves) {
+            const MoveThreatInfo attackInfo = state.threatInfoAt(move, attacker);
+            if (threatSeverity(attackInfo.best) < threatSeverity(ThreatType::SimpleFour)) {
+                continue;
+            }
+            candidates.push_back({move, attackInfo, forcingScore(move, attackInfo, anchor)});
+        }
+        std::stable_sort(candidates.begin(), candidates.end(), [](const CandidateMove& left, const CandidateMove& right) {
+            return left.score > right.score;
+        });
+        return candidates;
+    }
 
     // Collect empty squares in the 9x9 (Chebyshev-4) neighborhood of
     // `anchor` where `player` playing would form an immediate Five.
@@ -302,26 +401,14 @@ struct VcfProbe {
 
         const Player defender = otherPlayer(attacker);
 
-        std::vector<CandidateMove> candidates =
-            StaticEvaluator::generateCandidateMoves(state, attacker, 32);
+        std::vector<CandidateMove> candidates = state.lastPlacedMove().has_value()
+            ? generateForcingChildMoves(state, attacker)
+            : generateForcingRootMoves(state, attacker);
         if (candidates.empty()) {
             return false;
         }
 
-        // Put Five-creating moves first, then OpenFour, then SimpleFour.
-        std::stable_sort(candidates.begin(), candidates.end(),
-            [](const CandidateMove& left, const CandidateMove& right) {
-                return threatSeverity(left.threatInfo.best) > threatSeverity(right.threatInfo.best);
-            });
-
         for (const CandidateMove& candidate : candidates) {
-            const ThreatType attackType = candidate.threatInfo.best;
-            if (attackType != ThreatType::Five
-                && attackType != ThreatType::OpenFour
-                && attackType != ThreatType::SimpleFour) {
-                break; // candidates are sorted; nothing forcing remains
-            }
-
             if (!state.applyMove(candidate.move)) {
                 continue;
             }
@@ -711,6 +798,246 @@ private:
         return std::max<std::size_t>(1, config_.maxCandidateMoves);
     }
 
+    static int candidateCentralityScore(const GameState& state, Move move) {
+        const int center = state.boardSize() / 2;
+        return 200 - 12 * (std::abs(move.row - center) + std::abs(move.col - center));
+    }
+
+    static int candidateNeighborhoodPressure(const GameState& state, Move move, Player player) {
+        const std::vector<Player>& board = state.board();
+        const int boardSize = state.boardSize();
+        const Player opponent = otherPlayer(player);
+        const int rowMin = std::max(0, move.row - 2);
+        const int rowMax = std::min(boardSize - 1, move.row + 2);
+        const int colMin = std::max(0, move.col - 2);
+        const int colMax = std::min(boardSize - 1, move.col + 2);
+
+        int score = 0;
+        for (int row = rowMin; row <= rowMax; ++row) {
+            const int dRow = row - move.row;
+            const bool rowInner = (dRow >= -1 && dRow <= 1);
+            const std::size_t rowBase = static_cast<std::size_t>(row) * static_cast<std::size_t>(boardSize);
+            for (int col = colMin; col <= colMax; ++col) {
+                const int dCol = col - move.col;
+                if (dRow == 0 && dCol == 0) {
+                    continue;
+                }
+                const Player cell = board[rowBase + static_cast<std::size_t>(col)];
+                if (cell == player) {
+                    score += (rowInner && dCol >= -1 && dCol <= 1) ? 18 : 7;
+                } else if (cell == opponent) {
+                    score += 5;
+                }
+            }
+        }
+        return score;
+    }
+
+    CandidateMove buildCandidateMove(const GameState& state, Move move, Player player) const {
+        CandidateMove candidate;
+        candidate.move = move;
+        candidate.threatInfo = state.threatInfoAt(move, player);
+        candidate.score = candidate.threatInfo.totalScore
+            + candidateCentralityScore(state, move)
+            + candidateNeighborhoodPressure(state, move, player);
+
+        const MoveThreatInfo defensiveInfo = state.threatInfoAt(move, otherPlayer(player));
+        candidate.score += defensiveInfo.totalScore;
+        if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+            candidate.score += 500'000;
+        } else if (threatSeverityEnhanced(defensiveInfo) >= 600) {
+            candidate.score += 500'000;
+        } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
+            candidate.score += 50'000;
+        } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::BrokenThree)) {
+            candidate.score += 5'000;
+        }
+        if (candidate.threatInfo.best == ThreatType::Five) {
+            candidate.score += 10'000'000;
+        }
+        return candidate;
+    }
+
+    std::vector<Move> collectNeighborhoodMoves(const GameState& state, int radius) const {
+        std::vector<Move> moves;
+        if (state.isGameOver() || state.isSwapDecisionPending()) {
+            return moves;
+        }
+        const int boardSize = state.boardSize();
+        const std::vector<Player>& board = state.board();
+
+        if (state.moveCount() == 0) {
+            moves.push_back({boardSize / 2, boardSize / 2});
+            return moves;
+        }
+
+        if (radius <= 2) {
+            const std::vector<std::uint8_t>& nearCounts = state.nearStoneCounts();
+            for (int row = 0; row < boardSize; ++row) {
+                for (int col = 0; col < boardSize; ++col) {
+                    const std::size_t index = static_cast<std::size_t>(row * boardSize + col);
+                    if (board[index] == Player::None && nearCounts[index] > 0) {
+                        moves.push_back({row, col});
+                    }
+                }
+            }
+            return moves;
+        }
+
+        std::vector<unsigned char> marked(static_cast<std::size_t>(boardSize * boardSize), 0U);
+        for (int row = 0; row < boardSize; ++row) {
+            for (int col = 0; col < boardSize; ++col) {
+                const std::size_t stoneIndex = static_cast<std::size_t>(row * boardSize + col);
+                if (board[stoneIndex] == Player::None) {
+                    continue;
+                }
+                const int rowMin = std::max(0, row - radius);
+                const int rowMax = std::min(boardSize - 1, row + radius);
+                const int colMin = std::max(0, col - radius);
+                const int colMax = std::min(boardSize - 1, col + radius);
+                for (int targetRow = rowMin; targetRow <= rowMax; ++targetRow) {
+                    for (int targetCol = colMin; targetCol <= colMax; ++targetCol) {
+                        const std::size_t index = static_cast<std::size_t>(targetRow * boardSize + targetCol);
+                        if (board[index] != Player::None || marked[index] != 0U) {
+                            continue;
+                        }
+                        marked[index] = 1U;
+                        moves.push_back({targetRow, targetCol});
+                    }
+                }
+            }
+        }
+        return moves;
+    }
+
+    std::vector<CandidateMove> scoreAndSortMoves(const GameState& state,
+                                                 Player player,
+                                                 const std::vector<Move>& moves,
+                                                 std::size_t maxMoves) const {
+        std::vector<CandidateMove> candidates;
+        candidates.reserve(moves.size());
+        for (const Move& move : moves) {
+            candidates.push_back(buildCandidateMove(state, move, player));
+        }
+        std::sort(candidates.begin(), candidates.end(), [](const CandidateMove& left, const CandidateMove& right) {
+            return left.score > right.score;
+        });
+        if (candidates.size() > maxMoves) {
+            candidates.resize(maxMoves);
+        }
+        return candidates;
+    }
+
+    std::vector<CandidateMove> generateDefaultStageCandidates(const GameState& state,
+                                                              Player player,
+                                                              std::size_t maxMoves) const {
+        return scoreAndSortMoves(state, player, collectNeighborhoodMoves(state, 2), maxMoves);
+    }
+
+    std::vector<CandidateMove> generateOpeningLargeCandidates(const GameState& state,
+                                                              Player player,
+                                                              std::size_t maxMoves) const {
+        const std::size_t widenedBudget = std::max<std::size_t>(maxMoves, 24);
+        return scoreAndSortMoves(state, player, collectNeighborhoodMoves(state, 3), widenedBudget);
+    }
+
+    std::vector<CandidateMove> generateDefendStageCandidates(const GameState& state,
+                                                             Player player,
+                                                             bool opponentFourOnBoard,
+                                                             std::size_t maxMoves) const {
+        const Player opponent = otherPlayer(player);
+        std::vector<CandidateMove> candidates;
+        const std::vector<Move> moves = collectNeighborhoodMoves(state, 2);
+        candidates.reserve(moves.size());
+        for (const Move& move : moves) {
+            const MoveThreatInfo attackInfo = state.threatInfoAt(move, player);
+            const MoveThreatInfo opponentThreatHere = state.threatInfoAt(move, opponent);
+            const bool defends = threatSeverity(opponentThreatHere.best) >= threatSeverity(ThreatType::OpenFour)
+                || (!opponentFourOnBoard && threatSeverityEnhanced(opponentThreatHere) >= 600);
+            const bool counters = isDefensiveCounterMove(attackInfo, opponentFourOnBoard);
+            if (!defends && !counters) {
+                continue;
+            }
+            candidates.push_back(buildCandidateMove(state, move, player));
+        }
+        std::sort(candidates.begin(), candidates.end(), [](const CandidateMove& left, const CandidateMove& right) {
+            return left.score > right.score;
+        });
+        if (candidates.size() > maxMoves) {
+            candidates.resize(maxMoves);
+        }
+        return candidates;
+    }
+
+    std::vector<CandidateMove> generateForcingStageCandidates(const GameState& state,
+                                                              Player player,
+                                                              bool rootStage,
+                                                              std::size_t maxMoves) const {
+        std::vector<Move> scopedMoves;
+        if (rootStage || !state.lastPlacedMove().has_value()) {
+            scopedMoves = collectNeighborhoodMoves(state, 2);
+        } else {
+            const int radius = 4;
+            const Move anchor = *state.lastPlacedMove();
+            const int boardSize = state.boardSize();
+            const std::vector<Player>& board = state.board();
+            std::vector<unsigned char> marked(static_cast<std::size_t>(boardSize * boardSize), 0U);
+            const int rowMin = std::max(0, anchor.row - radius);
+            const int rowMax = std::min(boardSize - 1, anchor.row + radius);
+            const int colMin = std::max(0, anchor.col - radius);
+            const int colMax = std::min(boardSize - 1, anchor.col + radius);
+            for (int row = rowMin; row <= rowMax; ++row) {
+                for (int col = colMin; col <= colMax; ++col) {
+                    const std::size_t index = static_cast<std::size_t>(row * boardSize + col);
+                    if (board[index] != Player::None || marked[index] != 0U) {
+                        continue;
+                    }
+                    marked[index] = 1U;
+                    scopedMoves.push_back({row, col});
+                }
+            }
+        }
+
+        std::vector<CandidateMove> candidates;
+        candidates.reserve(scopedMoves.size());
+        for (const Move& move : scopedMoves) {
+            const MoveThreatInfo info = state.threatInfoAt(move, player);
+            if (threatSeverity(info.best) < threatSeverity(ThreatType::SimpleFour)
+                && threatSeverityEnhanced(info) < 400) {
+                continue;
+            }
+            candidates.push_back(buildCandidateMove(state, move, player));
+        }
+        std::sort(candidates.begin(), candidates.end(), [](const CandidateMove& left, const CandidateMove& right) {
+            return left.score > right.score;
+        });
+        if (candidates.empty()) {
+            return generateDefaultStageCandidates(state, player, maxMoves);
+        }
+        if (candidates.size() > maxMoves) {
+            candidates.resize(maxMoves);
+        }
+        return candidates;
+    }
+
+    CandidateStage chooseCandidateStage(const GameState& state, int ply) const {
+        const Player player = state.sideToMove();
+        const Player opponent = otherPlayer(player);
+        if (config_.useDefensiveFiltering && state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) {
+            return CandidateStage::DefendSimpleFour;
+        }
+        if (config_.useDefensiveFiltering && state.hasThreatAtLeast(opponent, ThreatType::OpenThree)) {
+            return CandidateStage::DefendOpenThree;
+        }
+        if (ply < 2 && state.moveCount() < 5) {
+            return CandidateStage::OpeningLarge;
+        }
+        if (state.hasThreatAtLeast(player, ThreatType::OpenThree)) {
+            return ply == 0 ? CandidateStage::ForcingRoot : CandidateStage::ForcingChild;
+        }
+        return CandidateStage::Default;
+    }
+
     int terminalScore(const GameState& state, int ply) const {
         if (state.result() == GameResult::Draw) {
             return 0;
@@ -768,70 +1095,36 @@ private:
         return true;
     }
 
-// When the opponent already has a forcing threat on the board, prune the
-    // candidate list to moves that either neutralise the threat or create an
-    // equally-fast counter-attack. Mirrors PentaZen's generate<DEFEND_B4>
-    // and generate<DEFEND_F3> stages — large node reduction and also a
-    // correctness win (we never waste tempo on quiet moves when forced).
-    std::vector<CandidateMove> applyDefensiveFilter(const GameState& state, std::vector<CandidateMove> candidates) const {
-        if (!config_.useDefensiveFiltering || candidates.size() <= 1) {
-            return candidates;
-        }
-
-        const Player opponent = otherPlayer(state.sideToMove());
-        if (!state.hasThreatAtLeast(opponent, ThreatType::OpenThree)) {
-            return candidates;
-        }
-
-        const bool opponentFourOnBoard = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour);
-
-        // Defender squares are the opponent's own extension points.
-        //
-        // When the opponent already has a SimpleFour on the board, only the
-        // actual completion squares matter: cells where they would create
-        // OpenFour/Five right now. High-severity forks elsewhere are too slow
-        // and must not survive the filter.
-        //
-        // When the pressure is only OpenThree-level, we also keep cells where
-        // the opponent would create a strong double-threat fork
-        // (OpenThree+OpenThree and stronger).
-        std::vector<Move> defenderSquares;
-        defenderSquares.reserve(candidates.size());
-        for (const CandidateMove& candidate : candidates) {
-            const MoveThreatInfo opponentThreatHere = state.threatInfoAt(candidate.move, opponent);
-            if (threatSeverity(opponentThreatHere.best) >= threatSeverity(ThreatType::OpenFour)) {
-                defenderSquares.push_back(candidate.move);
-            }
-            // A cell where the opponent would create a double-threat fork
-            // (e.g. two simultaneous OpenThree threats = 3-3 fork) is
-            // equally critical to block, but only when we are not already
-            // facing a live four.
-            if (!opponentFourOnBoard && threatSeverityEnhanced(opponentThreatHere) >= 600) {
-                defenderSquares.push_back(candidate.move);
-            }
-        }
-
-        std::vector<CandidateMove> filtered;
-        filtered.reserve(candidates.size());
-        for (const CandidateMove& candidate : candidates) {
-            const bool defends = std::find(defenderSquares.begin(), defenderSquares.end(), candidate.move) != defenderSquares.end();
-            const bool counters = isDefensiveCounterMove(candidate.threatInfo, opponentFourOnBoard);
-            if (defends || counters) {
-                filtered.push_back(candidate);
-            }
-        }
-
-        return filtered.empty() ? candidates : filtered;
-    }
-
-
     std::vector<CandidateMove> generateOrderedCandidates(const GameState& state, int ply, std::optional<Move> preferredMove = std::nullopt) {
-        auto candidates = StaticEvaluator::generateCandidateMoves(state, state.sideToMove(), candidateBudget(state));
+        const Player player = state.sideToMove();
+        const CandidateStage stage = chooseCandidateStage(state, ply);
+        const std::size_t budget = candidateBudget(state);
+
+        std::vector<CandidateMove> candidates;
+        switch (stage) {
+            case CandidateStage::DefendSimpleFour:
+                candidates = generateDefendStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
+                break;
+            case CandidateStage::DefendOpenThree:
+                candidates = generateDefendStageCandidates(state, player, false, std::max<std::size_t>(budget, 20));
+                break;
+            case CandidateStage::ForcingRoot:
+                candidates = generateForcingStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
+                break;
+            case CandidateStage::ForcingChild:
+                candidates = generateForcingStageCandidates(state, player, false, std::max<std::size_t>(budget, 12));
+                break;
+            case CandidateStage::OpeningLarge:
+                candidates = generateOpeningLargeCandidates(state, player, std::max<std::size_t>(budget, 24));
+                break;
+            case CandidateStage::Default:
+            default:
+                candidates = generateDefaultStageCandidates(state, player, budget);
+                break;
+        }
         if (candidates.empty()) {
             return candidates;
         }
-
-        candidates = applyDefensiveFilter(state, std::move(candidates));
 
         std::optional<Move> ttBestMove;
         if (const TTEntry* found = tt_.find(state.positionHash())) {
@@ -1269,6 +1562,18 @@ bool isDefensiveCounterMove(const MoveThreatInfo& info, bool opponentFourOnBoard
 
     return threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)
         || threatSeverityEnhanced(info) >= 600;
+}
+
+std::vector<Move> vcfCandidateMovesForAnalysis(const GameState& state, Player attacker, bool childStage) {
+    const std::vector<CandidateMove> candidates = childStage
+        ? VcfProbe::generateForcingChildMoves(state, attacker)
+        : VcfProbe::generateForcingRootMoves(state, attacker);
+    std::vector<Move> moves;
+    moves.reserve(candidates.size());
+    for (const CandidateMove& candidate : candidates) {
+        moves.push_back(candidate.move);
+    }
+    return moves;
 }
 
 SearchEngine::SearchEngine(SearchConfig config)

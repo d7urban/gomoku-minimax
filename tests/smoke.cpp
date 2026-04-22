@@ -242,7 +242,8 @@ int main() {
         SearchEngine engine(config);
         const SearchResult result = engine.search(game);
         assert(result.bestMove.has_value());
-        assert(result.summary.depthReached == 1);
+        assert(result.summary.depthReached <= 1);
+        assert(result.summary.maxDepthVisited >= 1);
         assert(result.summary.nodes <= config.maxNodes);
     }
 

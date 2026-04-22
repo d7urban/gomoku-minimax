@@ -23,6 +23,7 @@ using gomoku::ThreatType;
 using gomoku::rulesFor;
 using gomoku::threatSeverity;
 using gomoku::threatSeverityEnhanced;
+using gomoku::vcfCandidateMovesForAnalysis;
 
 MoveThreatInfo make(ThreatType best, ThreatType second = ThreatType::None) {
     MoveThreatInfo info;
@@ -38,6 +39,23 @@ GameState makeGame(std::initializer_list<Move> moves) {
         assert(applied);
     }
     return game;
+}
+
+void assertPrincipalVariationLegal(const GameState& root, const SearchResult& result) {
+    if (!result.bestMove.has_value()) {
+        return;
+    }
+    assert(!result.summary.principalVariation.empty());
+    assert(result.summary.principalVariation.front() == *result.bestMove);
+
+    GameState line = root;
+    for (const Move& move : result.summary.principalVariation) {
+        const bool applied = line.applyMove(move);
+        assert(applied);
+        if (line.isGameOver()) {
+            break;
+        }
+    }
 }
 
 void testThreatSeverityEnhanced() {
@@ -359,6 +377,96 @@ void testTranspositionTablePersistsAcrossSearchCalls() {
     const SearchResult second = secondEngine.search(game);
     assert(second.bestMove.has_value());
     assert(second.summary.ttHits > 0);
+    assertPrincipalVariationLegal(game, second);
+}
+
+void testTranspositionTableReusesParentSubtreeAcrossPlayedMove() {
+    GameState game = makeGame({
+        {7, 7}, {7, 8},
+        {8, 7}, {6, 6},
+        {6, 8}, {8, 8},
+        {9, 7}, {5, 5},
+    });
+
+    SearchConfig config;
+    config.maxDepth = 5;
+    config.maxNodes = 250'000;
+    config.timeLimitMs = 1000;
+    config.maxCandidateMoves = 16;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+
+    SearchEngine rootEngine(config);
+    const SearchResult rootResult = rootEngine.search(game);
+    assert(rootResult.bestMove.has_value());
+    assertPrincipalVariationLegal(game, rootResult);
+
+    GameState child = game;
+    assert(child.applyMove(*rootResult.bestMove));
+
+    SearchEngine childEngine(config);
+    const SearchResult childResult = childEngine.search(child);
+    assert(childResult.bestMove.has_value());
+    assert(childResult.summary.ttHits > 0);
+    assertPrincipalVariationLegal(child, childResult);
+}
+
+void testTranspositionTablePollutionDoesNotCorruptPrincipalVariation() {
+    GameState anchor = makeGame({
+        {7, 7}, {7, 8},
+        {8, 7}, {6, 6},
+        {6, 8}, {8, 8},
+        {9, 7}, {5, 5},
+    });
+    GameState target = makeGame({
+        {4, 4}, {10, 10},
+        {5, 6}, {9, 8},
+        {6, 5}, {8, 9},
+        {7, 7}, {11, 6},
+    });
+
+    SearchConfig config;
+    config.maxDepth = 5;
+    config.maxNodes = 250'000;
+    config.timeLimitMs = 1000;
+    config.maxCandidateMoves = 16;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+
+    SearchEngine warmEngine(config);
+    const SearchResult warmResult = warmEngine.search(anchor);
+    assert(warmResult.bestMove.has_value());
+
+    SearchEngine targetEngine(config);
+    const SearchResult targetResult = targetEngine.search(target);
+    assert(targetResult.bestMove.has_value());
+    assertPrincipalVariationLegal(target, targetResult);
+}
+
+void testVcfRootGeneratorIgnoresQuietNoise() {
+    GameState game = makeGame({
+        {7, 5}, {0, 0},
+        {7, 6}, {0, 1},
+        {7, 7}, {12, 12},
+        {11, 12}, {12, 11},
+        {11, 11},
+    });
+    game.setSideToMoveForAnalysis(Player::Black);
+
+    const std::vector<Move> candidates = vcfCandidateMovesForAnalysis(game, Player::Black, false);
+    assert(!candidates.empty());
+
+    // The local row extensions are forcing; the noisy remote cluster around
+    // (11,11)-(12,12) should not contribute quiet VCF candidates.
+    assert(std::find(candidates.begin(), candidates.end(), Move{7, 8}) != candidates.end());
+    assert(std::find(candidates.begin(), candidates.end(), Move{7, 4}) != candidates.end());
+    assert(std::find(candidates.begin(), candidates.end(), Move{10, 10}) == candidates.end());
+    assert(std::find(candidates.begin(), candidates.end(), Move{10, 11}) == candidates.end());
+
+    for (const Move& move : candidates) {
+        assert(threatSeverity(game.threatInfoAt(move, Player::Black).best)
+            >= threatSeverity(ThreatType::SimpleFour));
+    }
 }
 
 }  // namespace
@@ -376,5 +484,8 @@ int main() {
     testDefensiveFilterKeepsDoubleOpenThreeCounter();
     testInterruptedSearchReportsMaxVisitedDepth();
     testTranspositionTablePersistsAcrossSearchCalls();
+    testTranspositionTableReusesParentSubtreeAcrossPlayedMove();
+    testTranspositionTablePollutionDoesNotCorruptPrincipalVariation();
+    testVcfRootGeneratorIgnoresQuietNoise();
     return 0;
 }

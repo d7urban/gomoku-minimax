@@ -67,6 +67,12 @@ struct SearchResult {
 // is still only OpenThree.
 bool isDefensiveCounterMove(const MoveThreatInfo& info, bool opponentFourOnBoard);
 
+// Analysis helper for tests and diagnostics: returns the current VCF move
+// candidates the engine would consider for `attacker` from this position.
+// `childStage=false` uses the root VCF generator; `childStage=true` uses the
+// localized child-stage generator.
+std::vector<Move> vcfCandidateMovesForAnalysis(const GameState& state, Player attacker, bool childStage);
+
 class SearchEngine {
 public:
     explicit SearchEngine(SearchConfig config = {});
