@@ -16,15 +16,18 @@ Threat-aware C++20 Gomoku engine with an SFML GUI, CLI tools, opening book suppo
   - `gomoku_ui` SFML desktop app
   - `gomoku_cli` text interface
 - Engine features:
-  - threat-aware static evaluation
+  - threat-aware static evaluation with compound-threat scoring
   - alpha-beta / PVS search
   - clustered transposition table with cross-move reuse
   - staged threat move generation for defense and forcing lines
+  - threat-sequence defense filtering with counter-threat refutations
+  - null-move pruning guarded by bounded opponent threat search
   - selective VCF probing with forcing-only candidates
   - cautious win-verification re-search for mate-like tactical scores
-  - tactical threat-sequence search
+  - tactical threat-sequence search with all-defenses continuation support
   - opening book
   - iterative deepening with dynamic time governor
+  - panic mode that can ignore soft time limits in losing tactical positions
   - bounded parallel root search
   - live search progress reporting in the GUI
   - AI-only OTB-style clock presets in the GUI
@@ -32,6 +35,7 @@ Threat-aware C++20 Gomoku engine with an SFML GUI, CLI tools, opening book suppo
   - self-play runner
   - search benchmark runner
   - opening-book dump tool
+  - opening-book builder
   - Gomocup protocol adapter
   - tournament runner
 
@@ -74,7 +78,7 @@ GUI:
 The GUI uses AI-only clock presets instead of a fixed per-move limit:
 - `blitz`: `5:00 / 40`
 - `fast`: `15:00 / 60`
-- `slow`: `30:00 / 80`
+- `slow`: `60:00 / 60`
 
 The search panel shows both:
 - `Depth`: deepest ply actually visited, including forcing extensions
@@ -132,11 +136,29 @@ Opening book dump:
 ./build/gomoku_book
 ```
 
+Opening book builder:
+
+```bash
+./build/gomoku_book_build \
+  --positions 1379 \
+  --time-ms 10000 \
+  --candidates 8 \
+  --output src/engine/OpeningBookData.inc
+```
+
+The builder emits `OpeningBookData.inc` initializer entries. By default it writes
+`OpeningBookData.generated.inc` so experiments do not overwrite the active book
+unless `--output src/engine/OpeningBookData.inc` is passed explicitly.
+
 Gomocup adapter:
 
 ```bash
-./build/gomoku_gomocup --controller expert
+./build/gomoku_gomocup --controller expert --threads 0
 ```
+
+Use `--threads 0` for automatic root parallelism, `--threads 1` to force
+single-threaded search, and `--no-strict-defense` to disable the hard
+threat-sequence defense filter for triage.
 
 Tournament runner:
 
@@ -163,7 +185,8 @@ cmake --build build --target \
   gomoku_tactical_regressions \
   gomoku_search_enhancements \
   gomoku_seeded_regressions \
-  gomoku_time_governor
+  gomoku_time_governor \
+  gomoku_book_build
 
 ctest --test-dir build --output-on-failure
 ```
@@ -177,15 +200,14 @@ ctest --test-dir build --output-on-failure
 - `src/tools/`: self-play and benchmark tools
 - `tests/`: smoke and tactical regression suites
 - `Book/`: opening-book source files
-- `PLAN.md`: checkpoint roadmap
-- `STATUS.md`: implementation log and current status
-- `UPGRADE_IDEAS.md`: ranked engine-improvement notes
 
 ## Current State
 
 Current branch highlights:
 - GUI play with human or AI seats
 - opening-book play in the main engine
-- threat-aware search with staged tactical generation, VCF support, and win verification
+- threat-aware search with strict tactical defense filtering, VCF support, and win verification
 - AI-only repeating time controls in the GUI
+- Gomocup root parallelism and richer search logging
+- generated opening-book construction via `gomoku_book_build`
 - save/load support for GUI games

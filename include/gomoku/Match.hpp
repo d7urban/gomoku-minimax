@@ -17,6 +17,8 @@ struct MatchConfig {
     ControllerKind openerController {ControllerKind::Human};
     ControllerKind chooserController {ControllerKind::ExpertAI};
     int aiMoveTimeMs {500};
+    int searchThreads {0};
+    bool strictDefenseFiltering {true};
     AiTimeControlPreset aiTimeControlPreset {AiTimeControlPreset::FixedPerMove};
 };
 
@@ -46,6 +48,7 @@ public:
     bool isAiTurn() const;
 
     void setAiMoveTimeMs(int aiMoveTimeMs);
+    void setSearchThreads(int searchThreads);
     void setAiTimeControlPreset(AiTimeControlPreset preset);
     void setAiClockState(Seat seat, std::int64_t timeLeftMs, int movesPlayedInPeriod);
     void clearUndoHistory();

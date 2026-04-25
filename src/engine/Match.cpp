@@ -94,6 +94,10 @@ void Match::setAiMoveTimeMs(int aiMoveTimeMs) {
     config_.aiMoveTimeMs = std::max(1, aiMoveTimeMs);
 }
 
+void Match::setSearchThreads(int searchThreads) {
+    config_.searchThreads = std::max(0, searchThreads);
+}
+
 void Match::setAiTimeControlPreset(AiTimeControlPreset preset) {
     config_.aiTimeControlPreset = preset;
     resetAiClocks();
@@ -441,6 +445,8 @@ void Match::chargeAiClock(Seat seat, std::int64_t elapsedMs, bool countsAsPeriod
 
 SearchConfig Match::makeSearchConfig() const {
     SearchConfig config;
+    config.maxRootThreads = config_.searchThreads;
+    config.useStrictDefenseFiltering = config_.strictDefenseFiltering;
     int heuristicBudgetMs = std::max(1, config_.aiMoveTimeMs);
     if (const auto effectiveClock = effectiveClockStateForTurn()) {
         config.clock = *effectiveClock;

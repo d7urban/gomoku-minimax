@@ -278,6 +278,21 @@ sf::Vector2f boardPoint(const Match& match, Move move, float left, float top, fl
     };
 }
 
+std::string boardColumnLabel(int col) {
+    const std::string label = gomoku::moveToString({0, col});
+    return label.empty() ? "?" : std::string(1, label.front());
+}
+
+std::string boardRowLabel(int row) {
+    const std::string label = gomoku::moveToString({row, 0});
+    return label.size() <= 1 ? "?" : label.substr(1);
+}
+
+void centerTextOrigin(sf::Text& text) {
+    const sf::FloatRect bounds = text.getLocalBounds();
+    text.setOrigin(bounds.left + bounds.width * 0.5f, bounds.top + bounds.height * 0.5f);
+}
+
 std::optional<Move> pickMoveFromMouse(const Match& match, sf::Vector2i mouse, float left, float top, float cell) {
     const int boardSize = match.state().boardSize();
     const float boardPixels = cell * static_cast<float>(boardSize - 1);
@@ -573,7 +588,7 @@ void drawThreatSequenceOverlay(sf::RenderWindow& window, const Match& match, con
     }
 }
 
-void drawBoard(sf::RenderWindow& window, const Match& match, float left, float top, float cell) {
+void drawBoard(sf::RenderWindow& window, const Match& match, float left, float top, float cell, const sf::Font* font) {
     const int boardSize = match.state().boardSize();
     const float boardPixels = cell * static_cast<float>(boardSize - 1);
 
@@ -630,6 +645,39 @@ void drawBoard(sf::RenderWindow& window, const Match& match, float left, float t
         marker.setPosition(boardPoint(match, *lastMove, left, top, cell));
         marker.setFillColor(sf::Color(220, 60, 60));
         window.draw(marker);
+    }
+
+    if (font == nullptr) {
+        return;
+    }
+
+    sf::Text label;
+    label.setFont(*font);
+    label.setCharacterSize(static_cast<unsigned>(std::max(12.0f, cell * 0.30f)));
+    label.setFillColor(sf::Color(55, 45, 25, 230));
+
+    for (int col = 0; col < boardSize; ++col) {
+        label.setString(boardColumnLabel(col));
+        centerTextOrigin(label);
+
+        const float x = left + cell * static_cast<float>(col);
+        label.setPosition(x, top - cell * 0.35f);
+        window.draw(label);
+
+        label.setPosition(x, top + boardPixels + cell * 0.35f);
+        window.draw(label);
+    }
+
+    for (int row = 0; row < boardSize; ++row) {
+        label.setString(boardRowLabel(row));
+        centerTextOrigin(label);
+
+        const float y = top + cell * static_cast<float>(boardSize - 1 - row);
+        label.setPosition(left - cell * 0.35f, y);
+        window.draw(label);
+
+        label.setPosition(left + boardPixels + cell * 0.35f, y);
+        window.draw(label);
     }
 }
 
@@ -703,6 +751,9 @@ std::vector<StatusLine> buildStatusLines(const Match& match, const UiControlStat
         }
         if (summary.usedOpeningBook) {
             addLine("Book line: " + summary.openingBookName);
+        }
+        if (summary.panicModeEntered) {
+            addLine("Panic mode: soft limit ignored", true);
         }
         if (!summary.principalVariation.empty()) {
             addLine("PV: " + moveListText(summary.principalVariation, 6));
@@ -1193,7 +1244,7 @@ int main(int argc, char** argv) {
         const UiLayout layout = computeLayout(window.getSize(), match.state().boardSize());
 
         window.clear(sf::Color(245, 235, 210));
-        drawBoard(window, match, layout.boardLeft, layout.boardTop, layout.cell);
+        drawBoard(window, match, layout.boardLeft, layout.boardTop, layout.cell, font.get());
 
         if (overlay.showHeatmap) {
             drawHeatmap(window, match, analysis, layout.boardLeft, layout.boardTop, layout.cell);

@@ -624,7 +624,7 @@ void GameState::updateThreatInfoIndices(Move placed, const std::vector<std::size
         }
         info.best = first;
         info.second = second;
-        info.totalScore = threatWeight(first) * 3 / 2 + threatWeight(second);
+        info.totalScore = combinedThreatScore(first, second);
     };
 
     for (const std::size_t index : indices) {

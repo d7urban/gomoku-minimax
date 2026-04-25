@@ -16,8 +16,11 @@ enum class ThreatGraphNodeKind : std::uint8_t {
 struct ThreatSequenceConfig {
     int maxDepth {6};
     std::uint64_t maxNodes {25000};
+    std::uint64_t refutationNodeBudget {1000};
     int timeLimitMs {0};
     std::size_t maxThreatMoves {12};
+    ThreatType minimumThreat {ThreatType::OpenThree};
+    bool useAllDefensesTrick {true};
 };
 
 struct ThreatStep {

@@ -70,6 +70,7 @@ void testThreatSeverityEnhanced() {
     assert(threatSeverityEnhanced(make(ThreatType::SimpleFour, ThreatType::OpenThree)) == 800);
     assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::OpenThree)) == 600);
     assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::BrokenThree)) == 400);
+    assert(threatSeverityEnhanced(make(ThreatType::BrokenThree, ThreatType::BrokenThree)) == 300);
 
     // SimpleFour: forcing threats get a base of 700, above double-OpenThree (600).
     assert(threatSeverityEnhanced(make(ThreatType::SimpleFour)) == 700);
@@ -79,6 +80,10 @@ void testThreatSeverityEnhanced() {
     // A double-threat outranks the same best-threat with a weaker secondary.
     assert(threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::OpenThree))
         > threatSeverityEnhanced(make(ThreatType::OpenThree, ThreatType::BrokenThree)));
+    assert(threatSeverityEnhanced(make(ThreatType::BrokenThree, ThreatType::BrokenThree))
+        > threatSeverityEnhanced(make(ThreatType::BrokenThree)));
+    assert(threatSeverityEnhanced(make(ThreatType::BrokenThree, ThreatType::BrokenThree))
+        > threatSeverityEnhanced(make(ThreatType::OpenThree)));
 
     // OpenFour always outranks any non-OpenFour combination.
     assert(threatSeverityEnhanced(make(ThreatType::OpenFour))
@@ -306,6 +311,36 @@ void testVcfLeafDisabledLeavesOtherMatePathsAvailable() {
     assert(result.summary.score >= 1'000'000);
 }
 
+void testFirstIterationSkipsLeafVcfProbe() {
+    // The first ID pass is the fallback move if later iterations time out.
+    // It must stay cheap enough to complete even when leaf positions contain
+    // broken-three VCF candidates.
+    GameState game = makeGame({
+        {0, 0}, {7, 6},
+        {0, 1}, {7, 8},
+        {1, 0}, {8, 7},
+    });
+    assert(game.sideToMove() == Player::Black);
+    assert(game.hasThreatAtLeast(Player::White, ThreatType::BrokenThree));
+
+    SearchConfig config;
+    config.maxDepth = 1;
+    config.maxNodes = 500'000;
+    config.timeLimitMs = 1000;
+    config.maxCandidateMoves = 18;
+    config.useRootThreatSearch = false;
+    config.useOpeningBook = false;
+    config.useVcfAtLeaves = true;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.completedLastDepth);
+    assert(result.summary.depthReached == 1);
+    assert(result.summary.vcfNodes == 0);
+    assert(result.summary.vcfHits == 0);
+}
+
 void testForcedFourExtensionTerminates() {
     // Build a position where White has a SimpleFour threat at row 7
     // (pieces at cols 0..3). Black to move — forced defense at (7, 4).
@@ -359,6 +394,24 @@ void testDefensiveFilterKeepsDoubleOpenThreeCounter() {
     assert(counter.second == ThreatType::OpenThree);
     assert(isDefensiveCounterMove(counter, false));
     assert(!isDefensiveCounterMove(counter, true));
+}
+
+void testDefensiveFilterKeepsDoubleBrokenThreeCounter() {
+    const MoveThreatInfo counter = make(ThreatType::BrokenThree, ThreatType::BrokenThree);
+    assert(isDefensiveCounterMove(counter, false));
+    assert(!isDefensiveCounterMove(counter, true));
+}
+
+void testDefensiveCounterPredicateDoesNotUseOrderingScore() {
+    assert(isDefensiveCounterMove(make(ThreatType::Five), true));
+    assert(!isDefensiveCounterMove(make(ThreatType::SimpleFour), true));
+    assert(isDefensiveCounterMove(make(ThreatType::SimpleFour), false));
+    assert(isDefensiveCounterMove(make(ThreatType::OpenThree, ThreatType::OpenThree), false));
+    assert(isDefensiveCounterMove(make(ThreatType::BrokenThree, ThreatType::BrokenThree), false));
+
+    assert(!isDefensiveCounterMove(make(ThreatType::OpenThree), false));
+    assert(!isDefensiveCounterMove(make(ThreatType::BrokenThree), false));
+    assert(!isDefensiveCounterMove(make(ThreatType::OpenThree, ThreatType::BrokenThree), false));
 }
 
 void testInterruptedSearchReportsMaxVisitedDepth() {
@@ -583,11 +636,14 @@ int main() {
     testShallowSearchFindsOpenFourMate();
     testWinningMateGetsCautiousVerification();
     testVcfLeafDisabledLeavesOtherMatePathsAvailable();
+    testFirstIterationSkipsLeafVcfProbe();
     testForcingFilterPicksUniqueSimpleFourBlock();
     testUniqueImmediateBlockShortCircuitsSearch();
     testSimpleFourDefenseOnlyKeepsRealBlockingSquares();
     testForcedFourExtensionTerminates();
     testDefensiveFilterKeepsDoubleOpenThreeCounter();
+    testDefensiveFilterKeepsDoubleBrokenThreeCounter();
+    testDefensiveCounterPredicateDoesNotUseOrderingScore();
     testInterruptedSearchReportsMaxVisitedDepth();
     testQuietSearchSkipsWinVerification();
     testTranspositionTablePersistsAcrossSearchCalls();

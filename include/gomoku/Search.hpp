@@ -23,6 +23,7 @@ struct SearchConfig {
     bool useAspirationWindows {true};
     bool useNullMovePruning {true};
     bool useDefensiveFiltering {true};
+    bool useStrictDefenseFiltering {true};
     bool useRootThreatSearch {true};
     bool useOpeningBook {false};
     bool useVcfAtLeaves {true};
@@ -43,7 +44,10 @@ struct SearchSummary {
     int maxDepthVisited {0};
     int score {0};
     int elapsedMs {0};
+    int softLimitMs {0};
+    int hardLimitMs {0};
     std::uint64_t nodes {0};
+    std::uint64_t maxNodes {0};
     std::uint64_t ttHits {0};
     std::uint64_t threatNodes {0};
     std::uint64_t vcfNodes {0};
@@ -52,9 +56,12 @@ struct SearchSummary {
     int winVerifications {0};
     int rootCandidateCount {0};
     int threatSequenceLength {0};
+    int requestedRootThreads {0};
     bool completedLastDepth {false};
     bool usedThreatSequence {false};
     bool usedOpeningBook {false};
+    bool panicModeEntered {false};
+    std::string decisionSource {"search"};
     std::string openingBookName;
     std::vector<Move> principalVariation;
 };
@@ -66,9 +73,9 @@ struct SearchResult {
 };
 
 // Counter-attacks that are strong enough to survive the defensive filter
-// when the opponent is already threatening. A double-open-three fork is a
-// valid counter to an opponent OpenThree even though its primary component
-// is still only OpenThree.
+// when the opponent is already threatening. The non-four cases are explicit
+// compound threats; do not infer this from threatSeverityEnhanced(), which is
+// only an ordering key.
 bool isDefensiveCounterMove(const MoveThreatInfo& info, bool opponentFourOnBoard);
 
 // Analysis helper for tests and diagnostics: returns the current VCF move

@@ -12,6 +12,7 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "gomoku/OpeningBook.hpp"
@@ -28,6 +29,7 @@ constexpr int kMateThreshold = kMateScore - 1000;
 constexpr int kDefaultAspirationWindow = 80;
 constexpr int kMaxSearchPly = 64;
 constexpr int kLmrTableSize = 64;
+constexpr int kPanicLosingThreshold = kMateThreshold;
 
 // Precomputed log/log LMR reduction table. PV nodes get one less reduction
 // than non-PV so the principal line is explored at a higher depth.
@@ -237,6 +239,17 @@ struct RootWorkerResult {
     int maxPlyVisited {0};
 };
 
+struct NodeTacticalState {
+    bool opponentThreatSearched {false};
+    bool opponentThreatFound {false};
+    bool ownThreatSearched {false};
+    bool ownThreatFound {false};
+    bool nullGuardSearched {false};
+    bool nullGuardFoundThreatSequence {false};
+    bool panicMode {false};
+    std::vector<Move> defenseSet;
+};
+
 enum class CandidateStage {
     Default,
     OpeningLarge,
@@ -255,6 +268,12 @@ std::vector<Move> collectImmediateWinningMoves(const GameState& state, Player pl
         }
     }
     return winningMoves;
+}
+
+void addUniqueMove(std::vector<Move>& moves, Move move) {
+    if (std::find(moves.begin(), moves.end(), move) == moves.end()) {
+        moves.push_back(move);
+    }
 }
 
 constexpr int scoreToTT(int score, int ply) {
@@ -506,6 +525,8 @@ public:
         killerMoves_.assign(static_cast<std::size_t>(std::max(config_.maxDepth + 8, kMaxSearchPly)), {});
         counterMoves_.assign(16U * 16U, std::nullopt);
         defensiveBlockingMoves_.clear();
+        nodeTacticalStateCache_.clear();
+        panicModeEntered_ = false;
 
         if (config_.useOpeningBook) {
             if (const auto bookHit = lookupOpeningBookMove(state)) {
@@ -514,6 +535,7 @@ public:
                 result.summary.rootCandidateCount = 1;
                 result.summary.completedLastDepth = true;
                 result.summary.usedOpeningBook = true;
+                result.summary.decisionSource = "opening_book";
                 result.summary.openingBookName = std::string(bookHit->lineName);
                 result.summary.principalVariation = {bookHit->move};
                 return finalizeResult(std::move(result));
@@ -528,6 +550,7 @@ public:
             result.summary.maxDepthVisited = 1;
             result.summary.rootCandidateCount = static_cast<int>(winningMoves.size());
             result.summary.completedLastDepth = true;
+            result.summary.decisionSource = "immediate_win";
             result.summary.principalVariation = {winningMoves.front()};
             return finalizeResult(std::move(result));
         }
@@ -540,6 +563,7 @@ public:
             result.summary.maxDepthVisited = 1;
             result.summary.rootCandidateCount = 1;
             result.summary.completedLastDepth = true;
+            result.summary.decisionSource = "forced_block";
             result.summary.principalVariation = {opponentWinningMoves.front()};
             return finalizeResult(std::move(result));
         }
@@ -562,6 +586,7 @@ public:
                 result.summary.threatSequenceLength = static_cast<int>(threatResult.sequence.size());
                 result.summary.usedThreatSequence = true;
                 result.summary.completedLastDepth = true;
+                result.summary.decisionSource = "threat_sequence";
                 result.threatSequence = threatResult;
                 result.summary.principalVariation.reserve(threatResult.sequence.size());
                 for (const ThreatStep& step : threatResult.sequence) {
@@ -579,15 +604,20 @@ public:
             defConfig.timeLimitMs = hardTimeLimitMs() > 0 ? std::max(5, hardTimeLimitMs() / 8) : 0;
             defConfig.maxThreatMoves = std::max<std::size_t>(4, config_.maxCandidateMoves / 2);
 
+            GameState opponentThreatState = state;
+            opponentThreatState.setSideToMoveForAnalysis(opponent);
             ThreatSequenceSearcher defSearcher(defConfig);
-            ThreatSearchResult defResult = defSearcher.searchWinningSequence(state, opponent);
+            ThreatSearchResult defResult = defSearcher.searchWinningSequence(opponentThreatState, opponent);
             result.summary.threatNodes += defResult.nodes;
             if (defResult.foundWin && !defResult.sequence.empty()) {
                 defensiveBlockingMoves_.clear();
                 for (const ThreatStep& step : defResult.sequence) {
-                    defensiveBlockingMoves_.push_back(step.move);
+                    addUniqueMove(defensiveBlockingMoves_, step.move);
                     for (const Move& defense : step.defenseMoves) {
-                        defensiveBlockingMoves_.push_back(defense);
+                        addUniqueMove(defensiveBlockingMoves_, defense);
+                    }
+                    for (const Move& required : step.requiredEmpty) {
+                        addUniqueMove(defensiveBlockingMoves_, required);
                     }
                 }
             }
@@ -607,7 +637,7 @@ public:
         int previousScore = result.summary.score;
         int lastIterationCostMs = 0;
         for (int depth = 1; depth <= config_.maxDepth; ++depth) {
-            if (shouldStop() || (depth > 1 && softLimitReached())) {
+            if (shouldStop() || (depth > 1 && !panicModeEntered_ && softLimitReached())) {
                 break;
             }
 
@@ -673,6 +703,11 @@ public:
             result.summary.principalVariation = extractPrincipalVariation(state, *iteration.bestMove, depth);
             previousScore = iteration.score;
             lastIterationCostMs = std::max(0, elapsedMs() - iterationStartMs);
+            if (iteration.score <= -kPanicLosingThreshold) {
+                panicModeEntered_ = true;
+                result.summary.panicModeEntered = true;
+                nodeTacticalStateCache_[rootState.positionHash()].panicMode = true;
+            }
             publishProgress(result.summary);
 
             // Update best-move stability state *before* checking softLimit
@@ -692,7 +727,7 @@ public:
             lastIterationBestMove_ = iteration.bestMove;
             lastIterationScore_ = iteration.score;
 
-            if (softLimitReached()) {
+            if (!panicModeEntered_ && softLimitReached()) {
                 break;
             }
         }
@@ -721,22 +756,29 @@ private:
     int  stableIterationCount_ {0};
     bool bestMoveChangedLastIter_ {false};
     bool scoreSwingLastIter_ {false};
+    bool panicModeEntered_ {false};
     TranspositionTable& tt_;
     std::vector<std::array<std::optional<Move>, 2>> killerMoves_;
     std::vector<int> historyScores_;
     std::vector<std::optional<Move>> counterMoves_;
     std::vector<Move> defensiveBlockingMoves_;
+    std::unordered_map<std::uint64_t, NodeTacticalState> nodeTacticalStateCache_;
 
     SearchResult finalizeResult(SearchResult result) const {
         result.summary.maxDepthVisited = std::max(result.summary.maxDepthVisited,
             std::max(result.summary.depthReached, maxPlyVisited_));
         result.summary.nodes = nodes_;
+        result.summary.maxNodes = config_.maxNodes;
         result.summary.ttHits = ttHits_;
         result.summary.vcfNodes = vcfProbeNodes_;
         result.summary.winVerificationNodes = winVerificationNodes_;
         result.summary.vcfHits = vcfHits_;
         result.summary.winVerifications = winVerificationCount_;
         result.summary.elapsedMs = elapsedMs();
+        result.summary.softLimitMs = softTimeLimitMs();
+        result.summary.hardLimitMs = hardTimeLimitMs();
+        result.summary.requestedRootThreads = config_.maxRootThreads;
+        result.summary.panicModeEntered = result.summary.panicModeEntered || panicModeEntered_;
         return result;
     }
 
@@ -748,12 +790,17 @@ private:
         progress.maxDepthVisited = std::max(progress.maxDepthVisited,
             std::max(progress.depthReached, maxPlyVisited_));
         progress.nodes = nodes_;
+        progress.maxNodes = config_.maxNodes;
         progress.ttHits = ttHits_;
         progress.vcfNodes = vcfProbeNodes_;
         progress.winVerificationNodes = winVerificationNodes_;
         progress.vcfHits = vcfHits_;
         progress.winVerifications = winVerificationCount_;
         progress.elapsedMs = elapsedMs();
+        progress.softLimitMs = softTimeLimitMs();
+        progress.hardLimitMs = hardTimeLimitMs();
+        progress.requestedRootThreads = config_.maxRootThreads;
+        progress.panicModeEntered = progress.panicModeEntered || panicModeEntered_;
         config_.progressCallback(progress);
     }
 
@@ -886,6 +933,29 @@ private:
         return score;
     }
 
+    static int attackThreatBonus(const MoveThreatInfo& info) {
+        if (threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)) {
+            return 250'000;
+        }
+        const int enhanced = threatSeverityEnhanced(info);
+        if (enhanced >= 600) {
+            return 150'000;
+        }
+        if (enhanced >= 400) {
+            return 100'000;
+        }
+        if (enhanced >= 300) {
+            return 80'000;
+        }
+        if (threatSeverity(info.best) >= threatSeverity(ThreatType::OpenThree)) {
+            return 50'000;
+        }
+        if (threatSeverity(info.best) >= threatSeverity(ThreatType::BrokenThree)) {
+            return 5'000;
+        }
+        return 0;
+    }
+
     CandidateMove buildCandidateMove(const GameState& state, Move move, Player player) const {
         CandidateMove candidate;
         candidate.move = move;
@@ -893,6 +963,7 @@ private:
         candidate.score = candidate.threatInfo.totalScore
             + candidateCentralityScore(state, move)
             + candidateNeighborhoodPressure(state, move, player);
+        candidate.score += attackThreatBonus(candidate.threatInfo);
 
         const MoveThreatInfo defensiveInfo = state.threatInfoAt(move, otherPlayer(player));
         candidate.score += defensiveInfo.totalScore;
@@ -900,6 +971,8 @@ private:
             candidate.score += 500'000;
         } else if (threatSeverityEnhanced(defensiveInfo) >= 600) {
             candidate.score += 500'000;
+        } else if (threatSeverityEnhanced(defensiveInfo) >= 300) {
+            candidate.score += 20'000;
         } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
             candidate.score += 50'000;
         } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::BrokenThree)) {
@@ -1073,6 +1146,136 @@ private:
         return candidates;
     }
 
+    int opponentReplyThreatRisk(const GameState& state, Move move, Player player) const {
+        GameState next = state;
+        if (!next.applyMove(move)) {
+            return std::numeric_limits<int>::max();
+        }
+        if (next.isGameOver()) {
+            return -1;
+        }
+
+        const Player opponent = otherPlayer(player);
+        int risk = 0;
+        for (const Move& reply : next.legalMoves()) {
+            risk = std::max(risk, threatSeverity(next.threatInfoAt(reply, opponent).best));
+        }
+        return risk;
+    }
+
+    void applyRootReplySafetyFilter(const GameState& state, Player player, std::vector<CandidateMove>& candidates) const {
+        if (candidates.size() <= 1) {
+            return;
+        }
+
+        int bestRisk = std::numeric_limits<int>::max();
+        std::vector<int> risks;
+        risks.reserve(candidates.size());
+        for (const CandidateMove& candidate : candidates) {
+            const int risk = opponentReplyThreatRisk(state, candidate.move, player);
+            risks.push_back(risk);
+            bestRisk = std::min(bestRisk, risk);
+        }
+
+        if (bestRisk > threatSeverity(ThreatType::Two)) {
+            return;
+        }
+
+        std::vector<CandidateMove> filtered;
+        filtered.reserve(candidates.size());
+        for (std::size_t index = 0; index < candidates.size(); ++index) {
+            if (risks[index] == bestRisk
+                || threatSeverity(candidates[index].threatInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+                filtered.push_back(candidates[index]);
+            }
+        }
+        if (!filtered.empty()) {
+            candidates = std::move(filtered);
+        }
+    }
+
+    bool shouldRunStrictDefenseSearch(const GameState& state, Player defender) const {
+        if (!config_.useDefensiveFiltering || !config_.useStrictDefenseFiltering || state.isGameOver()) {
+            return false;
+        }
+        const Player attacker = otherPlayer(defender);
+        return state.hasThreatAtLeast(attacker, ThreatType::OpenThree);
+    }
+
+    ThreatSequenceConfig strictDefenseThreatConfig() const {
+        ThreatSequenceConfig threatConfig;
+        threatConfig.maxDepth = std::max(2, std::min(4, config_.maxDepth));
+        threatConfig.maxNodes = config_.maxNodes > 0
+            ? std::clamp<std::uint64_t>(config_.maxNodes / 64, 500, 4000)
+            : 2000;
+        threatConfig.timeLimitMs = hardTimeLimitMs() > 0 ? std::max(1, hardTimeLimitMs() / 64) : 0;
+        threatConfig.maxThreatMoves = std::clamp<std::size_t>(config_.maxCandidateMoves / 2, 4, 12);
+        threatConfig.minimumThreat = ThreatType::OpenThree;
+        return threatConfig;
+    }
+
+    NodeTacticalState& cachedStrictDefenseSet(const GameState& state, Player defender) {
+        NodeTacticalState& entry = nodeTacticalStateCache_[state.positionHash()];
+        if (entry.opponentThreatSearched) {
+            return entry;
+        }
+
+        entry.opponentThreatSearched = true;
+        if (!shouldRunStrictDefenseSearch(state, defender)) {
+            return entry;
+        }
+
+        const Player attacker = otherPlayer(defender);
+        GameState attackerTurn = state;
+        attackerTurn.setSideToMoveForAnalysis(attacker);
+
+        ThreatSequenceSearcher searcher(strictDefenseThreatConfig());
+        const ThreatSearchResult threat = searcher.searchWinningSequence(attackerTurn, attacker);
+        if (!threat.foundWin || threat.sequence.empty()) {
+            return entry;
+        }
+
+        for (const ThreatStep& step : threat.sequence) {
+            addUniqueMove(entry.defenseSet, step.move);
+            for (const Move& move : step.defenseMoves) {
+                addUniqueMove(entry.defenseSet, move);
+            }
+            for (const Move& move : step.requiredEmpty) {
+                addUniqueMove(entry.defenseSet, move);
+            }
+        }
+        for (const Move& move : threat.refutations) {
+            addUniqueMove(entry.defenseSet, move);
+        }
+
+        for (const Move& move : state.legalMoves()) {
+            const MoveThreatInfo info = state.threatInfoAt(move, defender);
+            if (threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)
+                && isDefensiveCounterMove(info, false)) {
+                addUniqueMove(entry.defenseSet, move);
+            }
+        }
+
+        entry.opponentThreatFound = !entry.defenseSet.empty();
+        return entry;
+    }
+
+    std::vector<CandidateMove> strictDefenseCandidates(const GameState& state, Player player) {
+        std::vector<CandidateMove> candidates;
+        NodeTacticalState& defenseSet = cachedStrictDefenseSet(state, player);
+        if (!defenseSet.opponentThreatFound) {
+            return candidates;
+        }
+
+        candidates.reserve(defenseSet.defenseSet.size());
+        for (const Move& move : defenseSet.defenseSet) {
+            if (state.isLegalMove(move)) {
+                candidates.push_back(buildCandidateMove(state, move, player));
+            }
+        }
+        return candidates;
+    }
+
     CandidateStage chooseCandidateStage(const GameState& state, int ply) const {
         const Player player = state.sideToMove();
         const Player opponent = otherPlayer(player);
@@ -1131,7 +1334,40 @@ private:
         }
     }
 
-    bool shouldTryNullMove(const GameState& state, int depth, int beta, int ply, bool allowNullMove, int staticEval) const {
+    bool firstRootIteration() const {
+        return rootIterationDepth_ <= 1;
+    }
+
+    bool opponentHasBoundedThreatSequenceForNullGuard(const GameState& state, Player defender, int depth) {
+        NodeTacticalState& entry = nodeTacticalStateCache_[state.positionHash()];
+        if (entry.opponentThreatFound) {
+            return true;
+        }
+        if (entry.nullGuardSearched) {
+            return entry.nullGuardFoundThreatSequence;
+        }
+
+        entry.nullGuardSearched = true;
+        const Player attacker = otherPlayer(defender);
+        GameState attackerTurn = state;
+        attackerTurn.setSideToMoveForAnalysis(attacker);
+
+        ThreatSequenceConfig threatConfig;
+        threatConfig.maxDepth = std::clamp(depth, 2, 4);
+        threatConfig.maxNodes = config_.maxNodes > 0
+            ? std::clamp<std::uint64_t>(config_.maxNodes / 128, 300, 2000)
+            : 1000;
+        threatConfig.timeLimitMs = hardTimeLimitMs() > 0 ? std::max(1, hardTimeLimitMs() / 96) : 0;
+        threatConfig.maxThreatMoves = std::clamp<std::size_t>(config_.maxCandidateMoves / 3, 4, 10);
+        threatConfig.minimumThreat = ThreatType::BrokenThree;
+
+        ThreatSequenceSearcher searcher(threatConfig);
+        const ThreatSearchResult threat = searcher.searchWinningSequence(attackerTurn, attacker);
+        entry.nullGuardFoundThreatSequence = threat.foundWin;
+        return entry.nullGuardFoundThreatSequence;
+    }
+
+    bool shouldTryNullMove(GameState& state, int depth, int beta, int ply, bool allowNullMove, int staticEval) {
         if (!allowNullMove || !config_.useNullMovePruning || depth < 3 || ply <= 0) {
             return false;
         }
@@ -1145,6 +1381,10 @@ private:
             return false;
         }
 
+        if (opponentHasBoundedThreatSequenceForNullGuard(state, side, depth)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -1154,7 +1394,8 @@ private:
                                   ThreatType blockThreat,
                                   bool allowWinVerification,
                                   bool cautiousVerification) const {
-        if (!allowWinVerification || cautiousVerification || !config_.useWinVerificationResearch || !completedDepth_) {
+        if (!allowWinVerification || cautiousVerification || !config_.useWinVerificationResearch
+            || !completedDepth_ || firstRootIteration()) {
             return false;
         }
         if (score < kMateThreshold || childDepth <= 0) {
@@ -1251,27 +1492,29 @@ private:
         const CandidateStage stage = chooseCandidateStage(state, ply);
         const std::size_t budget = candidateBudget(state);
 
-        std::vector<CandidateMove> candidates;
-        switch (stage) {
-            case CandidateStage::DefendSimpleFour:
-                candidates = generateDefendStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
-                break;
-            case CandidateStage::DefendOpenThree:
-                candidates = generateDefendStageCandidates(state, player, false, std::max<std::size_t>(budget, 20));
-                break;
-            case CandidateStage::ForcingRoot:
-                candidates = generateForcingStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
-                break;
-            case CandidateStage::ForcingChild:
-                candidates = generateForcingStageCandidates(state, player, false, std::max<std::size_t>(budget, 12));
-                break;
-            case CandidateStage::OpeningLarge:
-                candidates = generateOpeningLargeCandidates(state, player, std::max<std::size_t>(budget, 24));
-                break;
-            case CandidateStage::Default:
-            default:
-                candidates = generateDefaultStageCandidates(state, player, budget);
-                break;
+        std::vector<CandidateMove> candidates = strictDefenseCandidates(state, player);
+        if (candidates.empty()) {
+            switch (stage) {
+                case CandidateStage::DefendSimpleFour:
+                    candidates = generateDefendStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
+                    break;
+                case CandidateStage::DefendOpenThree:
+                    candidates = generateDefendStageCandidates(state, player, false, std::max<std::size_t>(budget, 20));
+                    break;
+                case CandidateStage::ForcingRoot:
+                    candidates = generateForcingStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
+                    break;
+                case CandidateStage::ForcingChild:
+                    candidates = generateForcingStageCandidates(state, player, false, std::max<std::size_t>(budget, 12));
+                    break;
+                case CandidateStage::OpeningLarge:
+                    candidates = generateOpeningLargeCandidates(state, player, std::max<std::size_t>(budget, 24));
+                    break;
+                case CandidateStage::Default:
+                default:
+                    candidates = generateDefaultStageCandidates(state, player, budget);
+                    break;
+            }
         }
         if (candidates.empty() && stage != CandidateStage::Default) {
             // Staged tactical generators are intentionally selective, but
@@ -1282,6 +1525,9 @@ private:
         }
         if (candidates.empty()) {
             return candidates;
+        }
+        if (ply == 0) {
+            applyRootReplySafetyFilter(state, player, candidates);
         }
 
         std::optional<Move> ttBestMove;
@@ -1649,7 +1895,7 @@ private:
         }
 
         if (depth == 0) {
-            if (config_.useVcfAtLeaves && !state.isGameOver()) {
+            if (config_.useVcfAtLeaves && !firstRootIteration() && !state.isGameOver()) {
                 const Player attacker = state.sideToMove();
                 if (state.hasThreatAtLeast(attacker, ThreatType::BrokenThree)) {
                     VcfProbe probe;
@@ -1702,7 +1948,7 @@ private:
         if (shouldTryNullMove(state, depth, beta, ply, allowNullMove, staticEval)) {
             GameState nullState = state;
             nullState.setSideToMoveForAnalysis(otherPlayer(state.sideToMove()));
-            const int reduction = depth >= 6 ? 3 : 2;
+            const int reduction = std::min(depth - 1, std::max(2, depth / 2 + 1));
             const int nullScore = -negamax(nullState, depth - 1 - reduction, -beta, -beta + 1, ply + 1,
                 false, false, cautiousVerification);
             if (!completedDepth_) {
@@ -1843,8 +2089,15 @@ bool isDefensiveCounterMove(const MoveThreatInfo& info, bool opponentFourOnBoard
         return threatSeverity(info.best) >= threatSeverity(ThreatType::Five);
     }
 
-    return threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)
-        || threatSeverityEnhanced(info) >= 600;
+    if (threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)) {
+        return true;
+    }
+
+    // `threatSeverityEnhanced` is an ordering key, not a semantic counter
+    // predicate. Keep this whitelist explicit so mixed threats do not enter
+    // defensive move generation just because their ordering score is high.
+    return (info.best == ThreatType::OpenThree && info.second == ThreatType::OpenThree)
+        || (info.best == ThreatType::BrokenThree && info.second == ThreatType::BrokenThree);
 }
 
 std::vector<Move> vcfCandidateMovesForAnalysis(const GameState& state, Player attacker, bool childStage) {

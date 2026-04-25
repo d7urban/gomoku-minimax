@@ -45,8 +45,18 @@ void bumpPatternWindowsScanned() {
 #endif
 }
 
-int lineThreatScore(ThreatType first, ThreatType second) {
-    return threatWeight(first) * 3 / 2 + threatWeight(second);
+int exponentialThreatWeight(ThreatType threat) {
+    static constexpr std::array<int, 8> kWeights {
+        0,     // None
+        180,   // One
+        324,   // Two
+        583,   // BrokenThree
+        1050,  // OpenThree
+        1889,  // SimpleFour
+        3401,  // OpenFour
+        6122,  // Five
+    };
+    return kWeights[static_cast<std::size_t>(threat)];
 }
 
 std::array<ThreatType, 2> topTwoThreats(const std::array<ThreatType, 4>& threats) {
@@ -104,6 +114,29 @@ int neighborhoodPressure(const GameState& state, Move move, Player player) {
     return score;
 }
 
+int attackThreatBonus(const MoveThreatInfo& info) {
+    if (threatSeverity(info.best) >= threatSeverity(ThreatType::SimpleFour)) {
+        return 250'000;
+    }
+    const int enhanced = threatSeverityEnhanced(info);
+    if (enhanced >= 600) {
+        return 150'000;
+    }
+    if (enhanced >= 400) {
+        return 100'000;
+    }
+    if (enhanced >= 300) {
+        return 80'000;
+    }
+    if (threatSeverity(info.best) >= threatSeverity(ThreatType::OpenThree)) {
+        return 50'000;
+    }
+    if (threatSeverity(info.best) >= threatSeverity(ThreatType::BrokenThree)) {
+        return 5'000;
+    }
+    return 0;
+}
+
 bool isNearExistingStone(const GameState& state, Move move) {
     bumpNearStoneChecks();
     return state.isNearStone(move);
@@ -154,7 +187,14 @@ int threatSeverityEnhanced(const MoveThreatInfo& info) {
     if (info.best == ThreatType::OpenThree && info.second == ThreatType::BrokenThree) {
         return 400;
     }
+    if (info.best == ThreatType::BrokenThree && info.second == ThreatType::BrokenThree) {
+        return 300;
+    }
     return threatSeverity(info.best) + (threatSeverity(info.second) / 4);
+}
+
+int combinedThreatScore(ThreatType first, ThreatType second) {
+    return exponentialThreatWeight(first) * 3 / 2 + exponentialThreatWeight(second);
 }
 
 namespace {
@@ -261,7 +301,7 @@ MoveThreatInfo computeMoveThreatInfo(const GameState& state, Move move, Player p
     const auto [first, second] = topTwoThreats(info.lineThreats);
     info.best = first;
     info.second = second;
-    info.totalScore = lineThreatScore(first, second);
+    info.totalScore = combinedThreatScore(first, second);
     return info;
 }
 
@@ -318,14 +358,18 @@ int StaticEvaluator::evaluate(const GameState& state, Player perspective) {
     const Player opponent = otherPlayer(perspective);
     int score = evaluatePlayerPotential(state, perspective) - evaluatePlayerPotential(state, opponent);
 
+    int perspectiveBestThreat = 0;
     for (int row = 0; row < state.boardSize(); ++row) {
         for (int col = 0; col < state.boardSize(); ++col) {
             const Player cell = state.cellAt(row, col);
+            const Move move {row, col};
             if (cell == Player::None) {
+                perspectiveBestThreat = std::max(
+                    perspectiveBestThreat, attackThreatBonus(state.threatInfoAt(move, perspective)));
                 continue;
             }
 
-            const int delta = centralityScore(state, {row, col});
+            const int delta = centralityScore(state, move);
             if (cell == perspective) {
                 score += delta / 4;
             } else {
@@ -333,6 +377,7 @@ int StaticEvaluator::evaluate(const GameState& state, Player perspective) {
             }
         }
     }
+    score += perspectiveBestThreat;
 
     if (state.sideToMove() == perspective) {
         score += 12;
@@ -374,6 +419,7 @@ std::vector<CandidateMove> StaticEvaluator::generateCandidateMoves(const GameSta
             candidate.move = move;
             candidate.threatInfo = analyzeMove(state, move, player);
             candidate.score = candidate.threatInfo.totalScore + centralityScore(state, move) + neighborhoodPressure(state, move, player);
+            candidate.score += attackThreatBonus(candidate.threatInfo);
             const MoveThreatInfo defensiveInfo = analyzeMove(state, move, otherPlayer(player));
             candidate.score += defensiveInfo.totalScore;
 
@@ -381,6 +427,8 @@ std::vector<CandidateMove> StaticEvaluator::generateCandidateMoves(const GameSta
                 candidate.score += 500'000;
             } else if (threatSeverityEnhanced(defensiveInfo) >= 600) {
                 candidate.score += 500'000;
+            } else if (threatSeverityEnhanced(defensiveInfo) >= 300) {
+                candidate.score += 20'000;
             } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
                 candidate.score += 50'000;
             } else if (threatSeverity(defensiveInfo.best) >= threatSeverity(ThreatType::BrokenThree)) {

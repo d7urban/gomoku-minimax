@@ -54,6 +54,9 @@ target_link_libraries(gomoku_bench PRIVATE gomoku_engine)
 add_executable(gomoku_book src/tools/opening_book.cpp)
 target_link_libraries(gomoku_book PRIVATE gomoku_engine)
 
+add_executable(gomoku_book_build src/tools/book_build.cpp)
+target_link_libraries(gomoku_book_build PRIVATE gomoku_engine)
+
 add_executable(gomoku_gomocup src/tools/gomoku_gomocup.cpp)
 target_link_libraries(gomoku_gomocup PRIVATE gomoku_engine)
 
@@ -98,4 +101,13 @@ if(BUILD_TESTING)
     add_executable(gomoku_time_governor tests/time_governor.cpp)
     target_link_libraries(gomoku_time_governor PRIVATE gomoku_engine)
     add_test(NAME gomoku_time_governor COMMAND gomoku_time_governor)
+
+    add_test(
+        NAME gomoku_book_build_smoke
+        COMMAND gomoku_book_build
+            --positions 2
+            --time-ms 5
+            --candidates 2
+            --output ${CMAKE_CURRENT_BINARY_DIR}/OpeningBookData.smoke.inc
+    )
 endif()

@@ -341,6 +341,10 @@ int main() {
     {
         Match match({Ruleset::Freestyle15, ControllerKind::ExpertAI, ControllerKind::Human, 250});
         assert(match.config().aiMoveTimeMs == 250);
+        match.setSearchThreads(4);
+        assert(match.config().searchThreads == 4);
+        match.setSearchThreads(-1);
+        assert(match.config().searchThreads == 0);
         match.stepAi();
         assert(match.state().moveCount() == 1);
         assert(match.state().lastPlacedMove() == (Move{7, 7}));
@@ -430,6 +434,7 @@ int main() {
         config.ruleset = Ruleset::Freestyle15;
         config.openerController = ControllerKind::Human;
         config.chooserController = ControllerKind::ExpertAI;
+        config.searchThreads = 4;
         config.aiTimeControlPreset = AiTimeControlPreset::Blitz;
 
         Match match(config);
@@ -445,6 +450,7 @@ int main() {
         assert(loaded.config().ruleset == match.config().ruleset);
         assert(loaded.config().openerController == match.config().openerController);
         assert(loaded.config().chooserController == match.config().chooserController);
+        assert(loaded.config().searchThreads == match.config().searchThreads);
         assert(loaded.config().aiTimeControlPreset == match.config().aiTimeControlPreset);
         assert(loaded.state().positionHash() == match.state().positionHash());
         const auto loadedChooserClock = loaded.aiClockForSeat(Seat::Chooser);

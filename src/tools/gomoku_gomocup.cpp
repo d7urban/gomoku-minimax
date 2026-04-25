@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <optional>
@@ -52,6 +53,8 @@ std::string trim(std::string s) {
 struct EngineConfig {
     gomoku::ControllerKind controller {gomoku::ControllerKind::ExpertAI};
     int aiMoveTimeMs {500};
+    int searchThreads {0};
+    bool strictDefenseFiltering {true};
 };
 
 bool isInBounds(int x, int y) {
@@ -94,7 +97,9 @@ public:
             << ", author=\"" << kEngineAuthor << "\""
             << ", country=\"" << kEngineCountry << "\""
             << ", controller=\"" << gomoku::toString(config_.controller) << "\""
-            << ", time_ms=" << config_.aiMoveTimeMs;
+            << ", time_ms=" << config_.aiMoveTimeMs
+            << ", threads=" << config_.searchThreads
+            << ", strict_defense=" << (config_.strictDefenseFiltering ? 1 : 0);
         writeLine(oss.str());
     }
 
@@ -126,6 +131,9 @@ public:
                 clockChanged = true;
             } else if (key == "time_left") {
                 clock.timeLeftMs = parsed;
+                clockChanged = true;
+            } else if (key == "moves_to_reset") {
+                clock.movesToReset = static_cast<int>(parsed);
                 clockChanged = true;
             }
         }
@@ -180,7 +188,9 @@ public:
             return;
         }
 
+        const gomoku::ClockState preservedClock = match_->clockState();
         rebuildMatch();
+        match_->setClockState(preservedClock);
         auto blackList = brainIsBlack ? mine : opp;
         auto whiteList = brainIsBlack ? opp : mine;
         std::sort(blackList.begin(), blackList.end(), byRowThenCol);
@@ -217,6 +227,8 @@ private:
         mc.openerController = config_.controller;
         mc.chooserController = config_.controller;
         mc.aiMoveTimeMs = config_.aiMoveTimeMs;
+        mc.searchThreads = config_.searchThreads;
+        mc.strictDefenseFiltering = config_.strictDefenseFiltering;
         match_.emplace(mc);
     }
 
@@ -252,11 +264,32 @@ private:
         oss << last->col << "," << last->row;
         const auto& summary = match_->lastSearchSummary();
         if (summary) {
-            logLine("move=" + std::to_string(last->col) + "," + std::to_string(last->row) +
-                    " depth=" + std::to_string(summary->depthReached) +
-                    " score=" + std::to_string(summary->score) +
-                    " nodes=" + std::to_string(summary->nodes) +
-                    " t=" + std::to_string(summary->elapsedMs) + "ms");
+            const std::uint64_t nps = summary->elapsedMs > 0
+                ? (summary->nodes * 1000ULL) / static_cast<std::uint64_t>(summary->elapsedMs)
+                : 0ULL;
+            std::ostringstream log;
+            log << "move=" << last->col << "," << last->row
+                << " depth=" << summary->depthReached
+                << " score=" << summary->score
+                << " nodes=" << summary->nodes
+                << " t=" << summary->elapsedMs << "ms"
+                << " maxply=" << summary->maxDepthVisited
+                << " complete=" << (summary->completedLastDepth ? 1 : 0)
+                << " root=" << summary->rootCandidateCount
+                << " src=" << summary->decisionSource
+                << " nps=" << nps
+                << " tt=" << summary->ttHits
+                << " threat_nodes=" << summary->threatNodes
+                << " vcf_nodes=" << summary->vcfNodes
+                << " win_nodes=" << summary->winVerificationNodes
+                << " vcf_hits=" << summary->vcfHits
+                << " winv=" << summary->winVerifications
+                << " soft=" << summary->softLimitMs
+                << " hard=" << summary->hardLimitMs
+                << " maxnodes=" << summary->maxNodes
+                << " threads=" << summary->requestedRootThreads
+                << " panic=" << (summary->panicModeEntered ? 1 : 0);
+            logLine(log.str());
         }
         writeLine(oss.str());
     }
@@ -287,7 +320,7 @@ std::vector<std::tuple<int, int, int>> readBoardBlock() {
 
 void printUsage() {
     std::cerr << "Usage: gomoku_gomocup [--controller rookie|club|tactical|expert] "
-                 "[--time-ms N]\n";
+                 "[--time-ms N] [--threads N] [--no-strict-defense]\n";
 }
 
 }  // namespace
@@ -307,6 +340,10 @@ int main(int argc, char** argv) {
             config.controller = ctrl;
         } else if ((arg == "--time-ms" || arg == "-t") && i + 1 < argc) {
             config.aiMoveTimeMs = std::max(1, std::atoi(argv[++i]));
+        } else if ((arg == "--threads" || arg == "-j") && i + 1 < argc) {
+            config.searchThreads = std::max(0, std::atoi(argv[++i]));
+        } else if (arg == "--no-strict-defense") {
+            config.strictDefenseFiltering = false;
         } else if (arg == "--help" || arg == "-h") {
             printUsage();
             return 0;
@@ -319,7 +356,9 @@ int main(int argc, char** argv) {
 
     Engine engine(config);
     logLine("ready (controller=" + std::string(gomoku::toString(config.controller)) +
-            ", time_ms=" + std::to_string(config.aiMoveTimeMs) + ")");
+            ", time_ms=" + std::to_string(config.aiMoveTimeMs) +
+            ", threads=" + std::to_string(config.searchThreads) +
+            ", strict_defense=" + std::string(config.strictDefenseFiltering ? "1" : "0") + ")");
 
     std::string line;
     while (std::getline(std::cin, line)) {

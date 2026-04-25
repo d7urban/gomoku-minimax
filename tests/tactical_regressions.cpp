@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "TestAssert.hpp"
+#include "gomoku/PatternAnalysis.hpp"
 #include "gomoku/ThreatSearch.hpp"
 
 namespace {
@@ -49,10 +50,103 @@ void assertContinuationSubsetOfRequired(const ThreatStep& threat) {
     }
 }
 
+int pow3(int exponent) {
+    int result = 1;
+    for (int i = 0; i < exponent; ++i) {
+        result *= 3;
+    }
+    return result;
+}
+
+template<int Length>
+void assertBitPatternTableMatchesWindowTable() {
+    const ThreatType* table = gomoku::patternTableValues(Length, false);
+    std::vector<gomoku::PatternCell> cells(static_cast<std::size_t>(Length), gomoku::PatternCell::Empty);
+    for (int code = 0; code < pow3(Length); ++code) {
+        int remaining = code;
+        std::uint16_t ownBits = 0;
+        std::uint16_t opponentBits = 0;
+        for (int index = Length - 1; index >= 0; --index) {
+            const int digit = remaining % 3;
+            remaining /= 3;
+            cells[static_cast<std::size_t>(index)] = static_cast<gomoku::PatternCell>(digit);
+            if (digit == 1) {
+                ownBits = static_cast<std::uint16_t>(ownBits | (1U << index));
+            } else if (digit == 2) {
+                opponentBits = static_cast<std::uint16_t>(opponentBits | (1U << index));
+            }
+        }
+
+        for (int target = 0; target < Length; ++target) {
+            if (cells[static_cast<std::size_t>(target)] != gomoku::PatternCell::Own) {
+                continue;
+            }
+            for (int boundary = 0; boundary < 4; ++boundary) {
+                const bool ownBefore = (boundary & 2) != 0;
+                const bool ownAfter = (boundary & 1) != 0;
+                const ThreatType slow = gomoku::classifyPatternWindow(cells, target, false, ownBefore, ownAfter);
+                const ThreatType fast = gomoku::classifyPatternBits<Length>(
+                    ownBits, opponentBits, 0, target, ownBefore, ownAfter, table);
+                assert(slow == fast);
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
     using namespace gomoku;
+
+    {
+        assertBitPatternTableMatchesWindowTable<5>();
+        assertBitPatternTableMatchesWindowTable<6>();
+        assertBitPatternTableMatchesWindowTable<7>();
+    }
+
+    {
+        // Behavioral broken three: after Black plays {7,3}, the horizontal
+        // line is O_X*X__. It has exactly one open-four builder, but the
+        // opponent must answer one of the involved empty squares.
+        GameState game = makeGame({{7, 2}, {7, 0}, {7, 4}});
+        const Move target {7, 3};
+        const MoveThreatInfo info = StaticEvaluator::analyzeMove(game, target, Player::Black);
+        assert(info.lineThreats[0] == ThreatType::BrokenThree);
+        assert(info.best == ThreatType::BrokenThree);
+
+        game.setSideToMoveForAnalysis(Player::Black);
+        ThreatSequenceConfig config;
+        config.minimumThreat = ThreatType::BrokenThree;
+        ThreatSequenceSearcher searcher(config);
+        const auto threats = searcher.enumerateThreats(game, Player::Black);
+        const ThreatStep* broken = findThreat(threats, target, ThreatType::BrokenThree);
+        assert(broken != nullptr);
+        assert(containsMove(broken->continuationMoves, {7, 5}));
+        assert(containsMove(broken->defenseMoves, {7, 1}));
+        assert(containsMove(broken->defenseMoves, {7, 5}));
+        assert(containsMove(broken->defenseMoves, {7, 6}));
+        assert(containsMove(broken->requiredEmpty, {7, 1}));
+        assert(containsMove(broken->requiredEmpty, {7, 5}));
+        assert(containsMove(broken->requiredEmpty, {7, 6}));
+        assertContinuationSubsetOfRequired(*broken);
+    }
+
+    {
+        // Same shape in two directions. This must not degrade to a double
+        // two: it is a double broken-three fork and should be visible through
+        // the two best directional threats.
+        GameState game = makeGame({
+            {7, 2}, {7, 0},
+            {7, 4}, {4, 3},
+            {6, 3}, {0, 0},
+            {8, 3},
+        });
+        const MoveThreatInfo info = StaticEvaluator::analyzeMove(game, {7, 3}, Player::Black);
+        assert(info.lineThreats[0] == ThreatType::BrokenThree);
+        assert(info.lineThreats[1] == ThreatType::BrokenThree);
+        assert(info.best == ThreatType::BrokenThree);
+        assert(info.second == ThreatType::BrokenThree);
+    }
 
     {
         GameState game = makeGame({{7, 7}, {0, 0}, {7, 8}, {0, 1}});
@@ -103,12 +197,15 @@ int main() {
         assert(!result.foundWin);
         assert(result.sequence.empty());
         assert(result.graph.size() >= 2U);
+        bool sawOpenThree = false;
         for (const auto& node : result.graph) {
             assert(node.kind == ThreatGraphNodeKind::Threat);
-            assert(node.type == ThreatType::OpenThree);
+            assert(threatSeverity(node.type) >= threatSeverity(ThreatType::BrokenThree));
+            sawOpenThree = sawOpenThree || node.type == ThreatType::OpenThree;
             assert(!node.defenseMoves.empty());
             assert(!node.requiredEmpty.empty());
         }
+        assert(sawOpenThree);
     }
 
     {

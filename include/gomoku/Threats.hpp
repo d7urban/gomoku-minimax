@@ -33,6 +33,7 @@ inline int threatWeight(ThreatType type) {
     }
 }
 int threatSeverityEnhanced(const MoveThreatInfo& info);
+int combinedThreatScore(ThreatType first, ThreatType second);
 MoveThreatInfo computeMoveThreatInfo(const GameState& state, Move move, Player player);
 
 // Recomputes the threat for a single direction index (0=row, 1=col,

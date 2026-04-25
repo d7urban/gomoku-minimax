@@ -143,7 +143,7 @@ CanonicalEntryKey canonicalEntryKey(const OpeningBookEntry& entry, int boardSize
 }
 
 bool isImportedEntry(const OpeningBookEntry& entry) {
-    return entry.lineName.starts_with("cs");
+    return entry.lineName.starts_with("cs") || entry.lineName.starts_with("lb");
 }
 
 const std::vector<OpeningBookEntry>& entries() {

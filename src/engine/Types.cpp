@@ -131,7 +131,7 @@ AiTimeControlSpec aiTimeControlSpec(AiTimeControlPreset preset) {
         case AiTimeControlPreset::Fast:
             return {.periodTimeMs = 15LL * 60LL * 1000LL, .periodMoves = 60};
         case AiTimeControlPreset::Slow:
-            return {.periodTimeMs = 30LL * 60LL * 1000LL, .periodMoves = 80};
+            return {.periodTimeMs = 60LL * 60LL * 1000LL, .periodMoves = 60};
         case AiTimeControlPreset::FixedPerMove:
         default:
             return {};

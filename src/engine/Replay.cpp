@@ -112,6 +112,7 @@ std::string serializeMatchSession(const Match& match) {
     output << "opener=" << toString(match.config().openerController) << '\n';
     output << "chooser=" << toString(match.config().chooserController) << '\n';
     output << "ai_move_time_ms=" << match.config().aiMoveTimeMs << '\n';
+    output << "ai_search_threads=" << match.config().searchThreads << '\n';
     output << "ai_time_control=" << toString(match.config().aiTimeControlPreset) << '\n';
     if (const auto openerClock = match.aiClockForSeat(Seat::Opener)) {
         output << "opener_clock " << openerClock->timeLeftMs << ' ' << openerClock->movesPlayedInPeriod << '\n';
@@ -189,6 +190,14 @@ bool deserializeMatchSession(std::string_view text, Match& match, std::string& e
             }
             continue;
         }
+        if (line.rfind("ai_search_threads=", 0) == 0) {
+            std::istringstream value(line.substr(18));
+            if (!(value >> config.searchThreads) || config.searchThreads < 0) {
+                error = "Invalid ai_search_threads in match session: " + line.substr(18);
+                return false;
+            }
+            continue;
+        }
         if (line.rfind("ai_time_control=", 0) == 0) {
             if (!tryParseAiTimeControlPreset(line.substr(16), config.aiTimeControlPreset)) {
                 error = "Invalid ai_time_control in match session: " + line.substr(16);
@@ -229,6 +238,7 @@ bool deserializeMatchSession(std::string_view text, Match& match, std::string& e
             || current.rfind("opener=", 0) == 0
             || current.rfind("chooser=", 0) == 0
             || current.rfind("ai_move_time_ms=", 0) == 0
+            || current.rfind("ai_search_threads=", 0) == 0
             || current.rfind("ai_time_control=", 0) == 0
             || current.rfind("opener_clock ", 0) == 0
             || current.rfind("chooser_clock ", 0) == 0) {

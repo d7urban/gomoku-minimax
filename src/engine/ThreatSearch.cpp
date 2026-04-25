@@ -12,8 +12,6 @@ namespace gomoku {
 
 namespace {
 
-constexpr ThreatType kMinimumForcingThreat = ThreatType::OpenThree;
-
 using Clock = std::chrono::steady_clock;
 
 bool isWinningResultFor(GameResult result, Player player) {
@@ -141,7 +139,7 @@ std::optional<ThreatStep> deriveThreat(const GameState& state, Move move, Player
                 continue;
             }
 
-            if (type == ThreatType::OpenThree) {
+            if (type == ThreatType::OpenThree || type == ThreatType::BrokenThree) {
                 for (int index = 0; index < length; ++index) {
                     if (cells[static_cast<std::size_t>(index)] != PatternCell::Empty) {
                         continue;
@@ -156,6 +154,7 @@ std::optional<ThreatStep> deriveThreat(const GameState& state, Move move, Player
                     const Move continuation = moveForLineOffset(state, direction, line.lineIndex, startOffset + index);
                     addUniqueValue(step.defenseMoves, continuation);
                     addUniqueValue(step.continuationMoves, continuation);
+                    addUniqueValue(step.requiredEmpty, continuation);
 
                     for (int follow = 0; follow < length; ++follow) {
                         if (extended[static_cast<std::size_t>(follow)] != PatternCell::Empty) {
@@ -170,6 +169,9 @@ std::optional<ThreatStep> deriveThreat(const GameState& state, Move move, Player
 
                         const Move required = moveForLineOffset(state, direction, line.lineIndex, startOffset + follow);
                         addUniqueValue(step.requiredEmpty, required);
+                        if (type == ThreatType::BrokenThree) {
+                            addUniqueValue(step.defenseMoves, required);
+                        }
                     }
                 }
             }
@@ -187,7 +189,12 @@ std::optional<ThreatStep> deriveThreat(const GameState& state, Move move, Player
     return step;
 }
 
-ThreatEnumerationResult enumerateThreatsInternal(const GameState& state, Player attacker, std::size_t maxThreatMoves, int timeLimitMs = 0) {
+ThreatEnumerationResult enumerateThreatsInternal(
+    const GameState& state,
+    Player attacker,
+    std::size_t maxThreatMoves,
+    int timeLimitMs = 0,
+    ThreatType minimumThreat = ThreatType::OpenThree) {
     ThreatEnumerationResult result;
     std::vector<ThreatStep>& threats = result.threats;
     if (state.isGameOver() || state.isSwapDecisionPending() || state.sideToMove() != attacker) {
@@ -206,13 +213,13 @@ ThreatEnumerationResult enumerateThreatsInternal(const GameState& state, Player 
         }
 
         const MoveThreatInfo info = StaticEvaluator::analyzeMove(state, move, attacker);
-        if (threatSeverity(info.best) < threatSeverity(kMinimumForcingThreat)) {
+        if (threatSeverity(info.best) < threatSeverity(minimumThreat)) {
             continue;
         }
 
         for (int direction = 0; direction < 4; ++direction) {
             const ThreatType type = info.lineThreats[static_cast<std::size_t>(direction)];
-            if (threatSeverity(type) < threatSeverity(kMinimumForcingThreat)) {
+            if (threatSeverity(type) < threatSeverity(minimumThreat)) {
                 continue;
             }
 
@@ -248,6 +255,15 @@ bool allSquaresEmpty(const GameState& state, const std::vector<Move>& moves) {
         }
     }
     return true;
+}
+
+bool intersects(const std::vector<Move>& left, const std::vector<Move>& right) {
+    for (const Move& move : left) {
+        if (std::find(right.begin(), right.end(), move) != right.end()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 class ThreatSearchRunner {
@@ -312,7 +328,8 @@ private:
             return false;
         }
 
-        const auto threats = enumerateThreatsInternal(state, attacker, config_.maxThreatMoves).threats;
+        const auto threats = enumerateThreatsInternal(
+            state, attacker, config_.maxThreatMoves, 0, config_.minimumThreat).threats;
         for (ThreatStep threat : threats) {
             if (std::find(reservedEmpty.begin(), reservedEmpty.end(), threat.move) != reservedEmpty.end() || !allSquaresEmpty(state, threat.requiredEmpty)) {
                 continue;
@@ -349,17 +366,55 @@ private:
                 continue;
             }
 
+            auto nextPath = path;
+            nextPath.push_back(threat);
             const auto replies = collectReplies(afterAttack, attacker, threat);
             if (replies.empty()) {
-                outSequence = {threat};
+                std::vector<ThreatStep> candidate {threat};
+                std::vector<Move> refutations;
+                if (sequenceRefutedByCounterThreats(state, attacker, candidate, refutations)) {
+                    for (const Move& refutation : refutations) {
+                        addUniqueValue(outRefutations, refutation);
+                    }
+                    continue;
+                }
+                outSequence = std::move(candidate);
+                return true;
+            }
+
+            if (config_.useAllDefensesTrick && threat.type != ThreatType::OpenThree) {
+                GameState defended = applyAllDefenses(afterAttack, attacker, threat);
+                if (defended.isGameOver() && !isWinningResultFor(defended.result(), attacker)) {
+                    continue;
+                }
+                defended.setSideToMoveForAnalysis(attacker);
+
+                std::vector<ThreatStep> continuation;
+                std::vector<Move> recursiveRefutations;
+                if (!searchActual(defended, attacker, depth - 1, nextReserved, nextPath, continuation, recursiveRefutations)) {
+                    for (const Move& refutation : recursiveRefutations) {
+                        addUniqueValue(outRefutations, refutation);
+                    }
+                    continue;
+                }
+
+                std::vector<ThreatStep> candidate {threat};
+                candidate.insert(candidate.end(), continuation.begin(), continuation.end());
+                std::vector<Move> refutations;
+                if (sequenceRefutedByCounterThreats(state, attacker, candidate, refutations)) {
+                    for (const Move& refutation : refutations) {
+                        addUniqueValue(outRefutations, refutation);
+                    }
+                    continue;
+                }
+
+                outSequence = std::move(candidate);
                 return true;
             }
 
             bool allBranchesWin = true;
             std::vector<ThreatStep> representativeSequence;
             std::vector<Move> branchRefutations;
-            auto nextPath = path;
-            nextPath.push_back(threat);
 
             for (const Move& reply : replies) {
                 GameState defended = afterAttack;
@@ -394,8 +449,17 @@ private:
                 continue;
             }
 
-            outSequence = {threat};
-            outSequence.insert(outSequence.end(), representativeSequence.begin(), representativeSequence.end());
+            std::vector<ThreatStep> candidate {threat};
+            candidate.insert(candidate.end(), representativeSequence.begin(), representativeSequence.end());
+            std::vector<Move> refutations;
+            if (sequenceRefutedByCounterThreats(state, attacker, candidate, refutations)) {
+                for (const Move& refutation : refutations) {
+                    addUniqueValue(outRefutations, refutation);
+                }
+                continue;
+            }
+
+            outSequence = std::move(candidate);
             return true;
         }
 
@@ -419,7 +483,8 @@ private:
             return false;
         }
 
-        const auto threats = enumerateThreatsInternal(state, attacker, config_.maxThreatMoves).threats;
+        const auto threats = enumerateThreatsInternal(
+            state, attacker, config_.maxThreatMoves, 0, config_.minimumThreat).threats;
         for (const ThreatStep& threat : threats) {
             if (std::find(reservedEmpty.begin(), reservedEmpty.end(), threat.move) != reservedEmpty.end() || !allSquaresEmpty(state, threat.requiredEmpty)) {
                 continue;
@@ -452,6 +517,75 @@ private:
         return false;
     }
 
+    std::vector<Move> futureRequiredSquares(const std::vector<ThreatStep>& sequence, std::size_t startIndex) const {
+        std::vector<Move> required;
+        for (std::size_t index = startIndex; index < sequence.size(); ++index) {
+            addUniqueValue(required, sequence[index].move);
+            for (const Move& move : sequence[index].requiredEmpty) {
+                addUniqueValue(required, move);
+            }
+        }
+        normalizeMoves(required);
+        return required;
+    }
+
+    bool counterThreatInterferes(const ThreatStep& counter, const std::vector<Move>& futureRequired) const {
+        if (threatSeverity(counter.type) >= threatSeverity(ThreatType::OpenFour)) {
+            return true;
+        }
+        if (threatSeverity(counter.type) < threatSeverity(ThreatType::SimpleFour)) {
+            return false;
+        }
+        if (std::find(futureRequired.begin(), futureRequired.end(), counter.move) != futureRequired.end()) {
+            return true;
+        }
+        return intersects(counter.continuationMoves, futureRequired)
+            || intersects(counter.defenseMoves, futureRequired)
+            || intersects(counter.requiredEmpty, futureRequired);
+    }
+
+    bool sequenceRefutedByCounterThreats(const GameState& root,
+                                         Player attacker,
+                                         const std::vector<ThreatStep>& sequence,
+                                         std::vector<Move>& outRefutations) const {
+        GameState state = root;
+        const Player defender = otherPlayer(attacker);
+        std::uint64_t refutationNodes = 0;
+
+        for (std::size_t index = 0; index < sequence.size(); ++index) {
+            if (!state.applyMove(sequence[index].move)) {
+                return true;
+            }
+            if (isWinningResultFor(state.result(), attacker)) {
+                return false;
+            }
+
+            GameState defenderTurn = state;
+            defenderTurn.setSideToMoveForAnalysis(defender);
+            ThreatEnumerationResult counters = enumerateThreatsInternal(
+                defenderTurn, defender, config_.maxThreatMoves, 0, ThreatType::SimpleFour);
+            refutationNodes += counters.nodes;
+            const std::vector<Move> futureRequired = futureRequiredSquares(sequence, index + 1);
+            for (const ThreatStep& counter : counters.threats) {
+                if (counterThreatInterferes(counter, futureRequired)) {
+                    addUniqueValue(outRefutations, counter.move);
+                    return true;
+                }
+            }
+            if (config_.refutationNodeBudget > 0 && refutationNodes >= config_.refutationNodeBudget) {
+                return true;
+            }
+
+            state = applyAllDefenses(state, attacker, sequence[index]);
+            if (state.isGameOver() && !isWinningResultFor(state.result(), attacker)) {
+                return true;
+            }
+            state.setSideToMoveForAnalysis(attacker);
+        }
+
+        return false;
+    }
+
     GameState applyAllDefenses(const GameState& afterAttack, Player attacker, const ThreatStep& threat) const {
         GameState defended = afterAttack;
         const Player defender = otherPlayer(attacker);
@@ -474,7 +608,8 @@ private:
         }
 
         const Player defender = otherPlayer(attacker);
-        auto counterThreats = enumerateThreatsInternal(afterAttack, defender, config_.maxThreatMoves).threats;
+        auto counterThreats = enumerateThreatsInternal(
+            afterAttack, defender, config_.maxThreatMoves, 0, config_.minimumThreat).threats;
         for (const ThreatStep& counter : counterThreats) {
             if (threatSeverity(counter.type) >= threatSeverity(threat.type)) {
                 addUniqueValue(replies, counter.move);
@@ -536,11 +671,13 @@ ThreatSequenceSearcher::ThreatSequenceSearcher(ThreatSequenceConfig config)
 }
 
 std::vector<ThreatStep> ThreatSequenceSearcher::enumerateThreats(const GameState& state, Player attacker) const {
-    return enumerateThreatsInternal(state, attacker, config_.maxThreatMoves, config_.timeLimitMs).threats;
+    return enumerateThreatsInternal(
+        state, attacker, config_.maxThreatMoves, config_.timeLimitMs, config_.minimumThreat).threats;
 }
 
 ThreatEnumerationResult ThreatSequenceSearcher::enumerateThreatsWithStats(const GameState& state, Player attacker) const {
-    return enumerateThreatsInternal(state, attacker, config_.maxThreatMoves, config_.timeLimitMs);
+    return enumerateThreatsInternal(
+        state, attacker, config_.maxThreatMoves, config_.timeLimitMs, config_.minimumThreat);
 }
 
 ThreatSearchResult ThreatSequenceSearcher::searchWinningSequence(const GameState& state, Player attacker) const {
