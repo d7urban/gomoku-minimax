@@ -1,0 +1,944 @@
+{
+  "balance_method": "gomokuzero_mcts_black_value",
+  "balance_threshold": 0.1,
+  "balanced": true,
+  "evaluator": "GomokuZero-player",
+  "format": "gomoku-harness-openings",
+  "generated_at": "2026-04-24T14:53:59+00:00",
+  "opening_count": 29,
+  "openings": [
+    {
+      "id": "B2,G3",
+      "moves": [
+        {
+          "x": 1,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 12
+        }
+      ],
+      "name": "B2,G3",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.0004888669040027042,
+        "best_move": {
+          "q": -0.0362557217944616,
+          "visits": 1724,
+          "x": 3,
+          "y": 11
+        },
+        "black_value": 0.0004888669040027042,
+        "current_player_value": 0.0004888669040027042,
+        "elapsed_ms": 3836,
+        "raw_black_value": -0.6490121483802795,
+        "raw_current_player_value": -0.6490121483802795,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "H2,G5",
+      "moves": [
+        {
+          "x": 7,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "name": "H2,G5",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.006117971485413521,
+        "best_move": {
+          "q": -0.005285799524622752,
+          "visits": 1670,
+          "x": 8,
+          "y": 11
+        },
+        "black_value": -0.006117971485413521,
+        "current_player_value": -0.006117971485413521,
+        "elapsed_ms": 3865,
+        "raw_black_value": -0.31063413619995117,
+        "raw_current_player_value": -0.31063413619995117,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "F2,G5",
+      "moves": [
+        {
+          "x": 5,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "name": "F2,G5",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.008066605435208579,
+        "best_move": {
+          "q": -0.022029602269444677,
+          "visits": 1701,
+          "x": 4,
+          "y": 11
+        },
+        "black_value": 0.008066605435208579,
+        "current_player_value": 0.008066605435208579,
+        "elapsed_ms": 3842,
+        "raw_black_value": -0.2979796230792999,
+        "raw_current_player_value": -0.2979796230792999,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "C3,G5",
+      "moves": [
+        {
+          "x": 2,
+          "y": 12
+        },
+        {
+          "x": 6,
+          "y": 10
+        }
+      ],
+      "name": "C3,G5",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.014738493197158486,
+        "best_move": {
+          "q": -0.02978754941056051,
+          "visits": 1025,
+          "x": 2,
+          "y": 11
+        },
+        "black_value": -0.014738493197158486,
+        "current_player_value": -0.014738493197158486,
+        "elapsed_ms": 3829,
+        "raw_black_value": -0.5107268691062927,
+        "raw_current_player_value": -0.5107268691062927,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "D3,E6",
+      "moves": [
+        {
+          "x": 3,
+          "y": 12
+        },
+        {
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "name": "D3,E6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.017157794205731058,
+        "best_move": {
+          "q": -0.06439961473463042,
+          "visits": 674,
+          "x": 5,
+          "y": 11
+        },
+        "black_value": -0.017157794205731058,
+        "current_player_value": -0.017157794205731058,
+        "elapsed_ms": 3837,
+        "raw_black_value": -0.08121296018362045,
+        "raw_current_player_value": -0.08121296018362045,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "G2,F5",
+      "moves": [
+        {
+          "x": 6,
+          "y": 13
+        },
+        {
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "name": "G2,F5",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.01733433669061752,
+        "best_move": {
+          "q": 0.014219752987772817,
+          "visits": 1512,
+          "x": 7,
+          "y": 11
+        },
+        "black_value": -0.01733433669061752,
+        "current_player_value": -0.01733433669061752,
+        "elapsed_ms": 3823,
+        "raw_black_value": -0.29739585518836975,
+        "raw_current_player_value": -0.29739585518836975,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "D3,F4",
+      "moves": [
+        {
+          "x": 3,
+          "y": 12
+        },
+        {
+          "x": 5,
+          "y": 11
+        }
+      ],
+      "name": "D3,F4",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.019289953985852353,
+        "best_move": {
+          "q": -0.057514565232903256,
+          "visits": 1507,
+          "x": 3,
+          "y": 10
+        },
+        "black_value": 0.019289953985852353,
+        "current_player_value": 0.019289953985852353,
+        "elapsed_ms": 3874,
+        "raw_black_value": -0.1374574899673462,
+        "raw_current_player_value": -0.1374574899673462,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "C2,G7",
+      "moves": [
+        {
+          "x": 2,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 8
+        }
+      ],
+      "name": "C2,G7",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.022134789662203277,
+        "best_move": {
+          "q": -0.08216060020886233,
+          "visits": 1304,
+          "x": 3,
+          "y": 11
+        },
+        "black_value": 0.022134789662203277,
+        "current_player_value": 0.022134789662203277,
+        "elapsed_ms": 3863,
+        "raw_black_value": -0.4993290305137634,
+        "raw_current_player_value": -0.4993290305137634,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "F2,E6",
+      "moves": [
+        {
+          "x": 5,
+          "y": 13
+        },
+        {
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "name": "F2,E6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.025325077219815112,
+        "best_move": {
+          "q": 0.014320218872703742,
+          "visits": 855,
+          "x": 6,
+          "y": 11
+        },
+        "black_value": -0.025325077219815112,
+        "current_player_value": -0.025325077219815112,
+        "elapsed_ms": 3804,
+        "raw_black_value": -0.24763917922973633,
+        "raw_current_player_value": -0.24763917922973633,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "A1,F2",
+      "moves": [
+        {
+          "x": 0,
+          "y": 14
+        },
+        {
+          "x": 5,
+          "y": 13
+        }
+      ],
+      "name": "A1,F2",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.025530705062676393,
+        "best_move": {
+          "q": -0.10739853435695482,
+          "visits": 1617,
+          "x": 5,
+          "y": 11
+        },
+        "black_value": 0.025530705062676393,
+        "current_player_value": 0.025530705062676393,
+        "elapsed_ms": 3794,
+        "raw_black_value": -0.4323602020740509,
+        "raw_current_player_value": -0.4323602020740509,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "C2,H4",
+      "moves": [
+        {
+          "x": 2,
+          "y": 13
+        },
+        {
+          "x": 7,
+          "y": 11
+        }
+      ],
+      "name": "C2,H4",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.03303325504825843,
+        "best_move": {
+          "q": -0.012358070465582092,
+          "visits": 1270,
+          "x": 3,
+          "y": 11
+        },
+        "black_value": -0.03303325504825843,
+        "current_player_value": -0.03303325504825843,
+        "elapsed_ms": 3898,
+        "raw_black_value": -0.649345338344574,
+        "raw_current_player_value": -0.649345338344574,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "E2,G6",
+      "moves": [
+        {
+          "x": 4,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "name": "E2,G6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.03532060783211596,
+        "best_move": {
+          "q": -0.06566957277995877,
+          "visits": 1490,
+          "x": 3,
+          "y": 11
+        },
+        "black_value": 0.03532060783211596,
+        "current_player_value": 0.03532060783211596,
+        "elapsed_ms": 3846,
+        "raw_black_value": -0.2574993371963501,
+        "raw_current_player_value": -0.2574993371963501,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "D3,D6",
+      "moves": [
+        {
+          "x": 3,
+          "y": 12
+        },
+        {
+          "x": 3,
+          "y": 9
+        }
+      ],
+      "name": "D3,D6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.03559461320721999,
+        "best_move": {
+          "q": -0.10341477915195475,
+          "visits": 1073,
+          "x": 5,
+          "y": 11
+        },
+        "black_value": 0.03559461320721999,
+        "current_player_value": 0.03559461320721999,
+        "elapsed_ms": 3821,
+        "raw_black_value": -0.271289199590683,
+        "raw_current_player_value": -0.271289199590683,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "G2,H5",
+      "moves": [
+        {
+          "x": 6,
+          "y": 13
+        },
+        {
+          "x": 7,
+          "y": 10
+        }
+      ],
+      "name": "G2,H5",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.036198815072365984,
+        "best_move": {
+          "q": -0.05639525963452651,
+          "visits": 1716,
+          "x": 5,
+          "y": 11
+        },
+        "black_value": 0.036198815072365984,
+        "current_player_value": 0.036198815072365984,
+        "elapsed_ms": 3828,
+        "raw_black_value": -0.30210229754447937,
+        "raw_current_player_value": -0.30210229754447937,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "D3,E4",
+      "moves": [
+        {
+          "x": 3,
+          "y": 12
+        },
+        {
+          "x": 4,
+          "y": 11
+        }
+      ],
+      "name": "D3,E4",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.043671290736918625,
+        "best_move": {
+          "q": 0.11548850488774122,
+          "visits": 678,
+          "x": 2,
+          "y": 10
+        },
+        "black_value": -0.043671290736918625,
+        "current_player_value": -0.043671290736918625,
+        "elapsed_ms": 3766,
+        "raw_black_value": -0.04972085729241371,
+        "raw_current_player_value": -0.04972085729241371,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "C2,E8",
+      "moves": [
+        {
+          "x": 2,
+          "y": 13
+        },
+        {
+          "x": 4,
+          "y": 7
+        }
+      ],
+      "name": "C2,E8",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.045635657948334095,
+        "best_move": {
+          "q": 0.02288370444416868,
+          "visits": 932,
+          "x": 3,
+          "y": 11
+        },
+        "black_value": -0.045635657948334095,
+        "current_player_value": -0.045635657948334095,
+        "elapsed_ms": 3955,
+        "raw_black_value": -0.5247626304626465,
+        "raw_current_player_value": -0.5247626304626465,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "G2,G6",
+      "moves": [
+        {
+          "x": 6,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "name": "G2,G6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.04841349482780147,
+        "best_move": {
+          "q": -0.03682945499306683,
+          "visits": 821,
+          "x": 8,
+          "y": 12
+        },
+        "black_value": -0.04841349482780147,
+        "current_player_value": -0.04841349482780147,
+        "elapsed_ms": 3799,
+        "raw_black_value": -0.3019416630268097,
+        "raw_current_player_value": -0.3019416630268097,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "H2,G6",
+      "moves": [
+        {
+          "x": 7,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "name": "H2,G6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.048836648001148335,
+        "best_move": {
+          "q": 0.02539187676543035,
+          "visits": 1028,
+          "x": 8,
+          "y": 11
+        },
+        "black_value": -0.048836648001148335,
+        "current_player_value": -0.048836648001148335,
+        "elapsed_ms": 3853,
+        "raw_black_value": -0.252427339553833,
+        "raw_current_player_value": -0.252427339553833,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "G2,F6",
+      "moves": [
+        {
+          "x": 6,
+          "y": 13
+        },
+        {
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "name": "G2,F6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.04929564085539923,
+        "best_move": {
+          "q": 0.03043134231047664,
+          "visits": 961,
+          "x": 7,
+          "y": 11
+        },
+        "black_value": -0.04929564085539923,
+        "current_player_value": -0.04929564085539923,
+        "elapsed_ms": 3817,
+        "raw_black_value": -0.22499777376651764,
+        "raw_current_player_value": -0.22499777376651764,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "H2,G4",
+      "moves": [
+        {
+          "x": 7,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 11
+        }
+      ],
+      "name": "H2,G4",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.05181893277681876,
+        "best_move": {
+          "q": -0.019687988935111436,
+          "visits": 957,
+          "x": 8,
+          "y": 11
+        },
+        "black_value": -0.05181893277681876,
+        "current_player_value": -0.05181893277681876,
+        "elapsed_ms": 3925,
+        "raw_black_value": -0.25933802127838135,
+        "raw_current_player_value": -0.25933802127838135,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "E2,F5",
+      "moves": [
+        {
+          "x": 4,
+          "y": 13
+        },
+        {
+          "x": 5,
+          "y": 10
+        }
+      ],
+      "name": "E2,F5",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.051886591048511094,
+        "best_move": {
+          "q": -0.04282019218033843,
+          "visits": 1044,
+          "x": 5,
+          "y": 11
+        },
+        "black_value": -0.051886591048511094,
+        "current_player_value": -0.051886591048511094,
+        "elapsed_ms": 3821,
+        "raw_black_value": -0.3446136713027954,
+        "raw_current_player_value": -0.3446136713027954,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "F2,G6",
+      "moves": [
+        {
+          "x": 5,
+          "y": 13
+        },
+        {
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "name": "F2,G6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.05379601438153617,
+        "best_move": {
+          "q": 0.020031275703997146,
+          "visits": 1342,
+          "x": 4,
+          "y": 11
+        },
+        "black_value": -0.05379601438153617,
+        "current_player_value": -0.05379601438153617,
+        "elapsed_ms": 3844,
+        "raw_black_value": -0.2419830858707428,
+        "raw_current_player_value": -0.2419830858707428,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "H2,H6",
+      "moves": [
+        {
+          "x": 7,
+          "y": 13
+        },
+        {
+          "x": 7,
+          "y": 9
+        }
+      ],
+      "name": "H2,H6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.057312110596407236,
+        "best_move": {
+          "q": -0.060007705723299144,
+          "visits": 776,
+          "x": 9,
+          "y": 12
+        },
+        "black_value": -0.057312110596407236,
+        "current_player_value": -0.057312110596407236,
+        "elapsed_ms": 3812,
+        "raw_black_value": -0.30302006006240845,
+        "raw_current_player_value": -0.30302006006240845,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "F2,F6",
+      "moves": [
+        {
+          "x": 5,
+          "y": 13
+        },
+        {
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "name": "F2,F6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.05880404561887233,
+        "best_move": {
+          "q": -0.004511434154416393,
+          "visits": 823,
+          "x": 7,
+          "y": 12
+        },
+        "black_value": -0.05880404561887233,
+        "current_player_value": -0.05880404561887233,
+        "elapsed_ms": 3759,
+        "raw_black_value": -0.3044078052043915,
+        "raw_current_player_value": -0.3044078052043915,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "E3,E6",
+      "moves": [
+        {
+          "x": 4,
+          "y": 12
+        },
+        {
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "name": "E3,E6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.07411164729139244,
+        "best_move": {
+          "q": -0.15225324339846974,
+          "visits": 771,
+          "x": 6,
+          "y": 11
+        },
+        "black_value": 0.07411164729139244,
+        "current_player_value": 0.07411164729139244,
+        "elapsed_ms": 3767,
+        "raw_black_value": -0.17585094273090363,
+        "raw_current_player_value": -0.17585094273090363,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "E2,E6",
+      "moves": [
+        {
+          "x": 4,
+          "y": 13
+        },
+        {
+          "x": 4,
+          "y": 9
+        }
+      ],
+      "name": "E2,E6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.07720231786739232,
+        "best_move": {
+          "q": 0.03728958368593679,
+          "visits": 932,
+          "x": 6,
+          "y": 12
+        },
+        "black_value": -0.07720231786739232,
+        "current_player_value": -0.07720231786739232,
+        "elapsed_ms": 3832,
+        "raw_black_value": -0.3773089647293091,
+        "raw_current_player_value": -0.3773089647293091,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "F3,F6",
+      "moves": [
+        {
+          "x": 5,
+          "y": 12
+        },
+        {
+          "x": 5,
+          "y": 9
+        }
+      ],
+      "name": "F3,F6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.08690448047379655,
+        "best_move": {
+          "q": -0.13698547561178767,
+          "visits": 464,
+          "x": 7,
+          "y": 11
+        },
+        "black_value": 0.08690448047379655,
+        "current_player_value": 0.08690448047379655,
+        "elapsed_ms": 4116,
+        "raw_black_value": -0.09793724119663239,
+        "raw_current_player_value": -0.09793724119663239,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "D2,D6",
+      "moves": [
+        {
+          "x": 3,
+          "y": 13
+        },
+        {
+          "x": 3,
+          "y": 9
+        }
+      ],
+      "name": "D2,D6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.08797064789994363,
+        "best_move": {
+          "q": 0.05440794686357472,
+          "visits": 1039,
+          "x": 5,
+          "y": 12
+        },
+        "black_value": -0.08797064789994363,
+        "current_player_value": -0.08797064789994363,
+        "elapsed_ms": 3870,
+        "raw_black_value": -0.44374239444732666,
+        "raw_current_player_value": -0.44374239444732666,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    },
+    {
+      "id": "C3,G6",
+      "moves": [
+        {
+          "x": 2,
+          "y": 12
+        },
+        {
+          "x": 6,
+          "y": 9
+        }
+      ],
+      "name": "C3,G6",
+      "ply": 2,
+      "zero_eval": {
+        "abs_black_value": 0.09586938722089496,
+        "best_move": {
+          "q": -0.17089251020102936,
+          "visits": 688,
+          "x": 2,
+          "y": 11
+        },
+        "black_value": 0.09586938722089496,
+        "current_player_value": 0.09586938722089496,
+        "elapsed_ms": 3818,
+        "raw_black_value": -0.4172208309173584,
+        "raw_current_player_value": -0.4172208309173584,
+        "root_visits": 2032,
+        "side_to_move": "black",
+        "sims": 2000
+      }
+    }
+  ],
+  "sims": 2000,
+  "source_openings_file": "/home/urban/Code/C++/gomoku-harness/results/crazy_sensei_openings_253.json",
+  "version": 1,
+  "weights": "gomoku_best.weights.h5",
+  "weights_label": "included"
+}
