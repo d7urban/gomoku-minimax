@@ -19,6 +19,11 @@ struct MatchConfig {
     int aiMoveTimeMs {500};
     int searchThreads {0};
     bool strictDefenseFiltering {true};
+    bool openingBookEnabled {true};
+    bool nullMovePruningEnabled {true};
+    bool defensiveFilteringEnabled {true};
+    bool compareNoDefFilterSearch {false};
+    double nextIterBranchingEstimate {0.0};
     AiTimeControlPreset aiTimeControlPreset {AiTimeControlPreset::FixedPerMove};
 };
 

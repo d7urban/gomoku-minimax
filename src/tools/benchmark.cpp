@@ -64,6 +64,7 @@ int main(int argc, char** argv) {
         {"white_must_block", Ruleset::Freestyle15, {{7, 7}, {7, 6}, {7, 8}, {0, 0}, {7, 9}, {1, 0}, {7, 10}}},
         {"black_finish_line", Ruleset::Freestyle15, {{7, 7}, {0, 0}, {7, 8}, {0, 1}, {7, 9}, {0, 2}, {7, 10}, {0, 3}}},
         {"standard_overline_trap", Ruleset::Standard15, {{7, 4}, {0, 0}, {7, 5}, {0, 1}, {7, 7}, {0, 2}, {7, 8}, {0, 3}, {7, 9}, {1, 3}}},
+        {"forcing_midgame_depth0_regression", Ruleset::Freestyle15, {{14, 1}, {14, 4}, {14, 7}, {14, 10}, {14, 9}, {14, 5}, {14, 6}, {11, 8}, {10, 9}, {12, 9}, {10, 7}, {10, 8}, {9, 8}, {11, 7}}},
     };
 
     std::cout << "Benchmark controller=" << toString(controller) << ", move_time=" << moveTimeMs << " ms\n\n";

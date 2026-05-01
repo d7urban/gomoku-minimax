@@ -47,9 +47,10 @@ SearchResult ExpertAI::chooseMove(const GameState& state, Player player, SearchC
         std::max(config.softTimeLimitMs, std::max(1, config.timeLimitMs * 19 / 20)));
     config.maxCandidateMoves = std::max<std::size_t>(config.maxCandidateMoves, 28);
     config.useAspirationWindows = true;
-    config.useNullMovePruning = true;
-    config.useDefensiveFiltering = true;
-    config.useOpeningBook = true;
+    config.useNullMovePruning = !config.disableNullMovePruning;
+    config.useDefensiveFiltering = !config.disableDefensiveFiltering;
+    config.useStrictDefenseFiltering = config.useStrictDefenseFiltering && config.useDefensiveFiltering;
+    config.useOpeningBook = !config.disableOpeningBook;
 
     SearchEngine engine(config);
     return engine.search(state);

@@ -161,6 +161,40 @@ int main() {
     }
 
     {
+        MatchConfig enabledConfig;
+        enabledConfig.ruleset = Ruleset::Freestyle15;
+        enabledConfig.openerController = ControllerKind::Human;
+        enabledConfig.chooserController = ControllerKind::ClubAI;
+        enabledConfig.aiMoveTimeMs = 200;
+        enabledConfig.openingBookEnabled = false;
+        Match enabled(enabledConfig);
+        assert(enabled.applyMove({7, 7}));
+        assert(enabled.applyMove({0, 0}));
+        assert(enabled.applyMove({7, 8}));
+        assert(enabled.applyMove({1, 0}));
+        assert(enabled.applyMove({7, 9}));
+        assert(enabled.applyMove({2, 0}));
+        assert(enabled.applyMove({7, 10}));
+        SearchResult enabledResult = enabled.searchAiTurn();
+        assert(enabledResult.bestMove.has_value());
+        assert(enabledResult.summary.defFilterApplied);
+
+        MatchConfig disabledConfig = enabledConfig;
+        disabledConfig.defensiveFilteringEnabled = false;
+        Match disabled(disabledConfig);
+        assert(disabled.applyMove({7, 7}));
+        assert(disabled.applyMove({0, 0}));
+        assert(disabled.applyMove({7, 8}));
+        assert(disabled.applyMove({1, 0}));
+        assert(disabled.applyMove({7, 9}));
+        assert(disabled.applyMove({2, 0}));
+        assert(disabled.applyMove({7, 10}));
+        SearchResult disabledResult = disabled.searchAiTurn();
+        assert(disabledResult.bestMove.has_value());
+        assert(!disabledResult.summary.defFilterApplied);
+    }
+
+    {
         GameState game(rulesFor(Ruleset::Freestyle15));
         const SearchResult result = ExpertAI::chooseMove(game, Player::Black);
         assert(result.bestMove == (Move{7, 7}));

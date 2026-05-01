@@ -55,6 +55,11 @@ struct EngineConfig {
     int aiMoveTimeMs {500};
     int searchThreads {0};
     bool strictDefenseFiltering {true};
+    bool openingBookEnabled {true};
+    bool nullMovePruningEnabled {true};
+    bool defensiveFilteringEnabled {true};
+    bool compareNoDefFilterSearch {false};
+    double nextIterBranchingEstimate {2.5};
 };
 
 bool isInBounds(int x, int y) {
@@ -64,6 +69,30 @@ bool isInBounds(int x, int y) {
 bool byRowThenCol(const std::pair<int, int>& left, const std::pair<int, int>& right) {
     if (left.second != right.second) return left.second < right.second;
     return left.first < right.first;
+}
+
+std::string formatMoveList(const std::vector<gomoku::Move>& moves) {
+    if (moves.empty()) {
+        return "-";
+    }
+
+    std::ostringstream oss;
+    for (std::size_t index = 0; index < moves.size(); ++index) {
+        if (index > 0) {
+            oss << '|';
+        }
+        oss << moves[index].col << ',' << moves[index].row;
+    }
+    return oss.str();
+}
+
+std::string formatOptionalMove(const std::optional<gomoku::Move>& move) {
+    if (!move.has_value()) {
+        return "-";
+    }
+    std::ostringstream oss;
+    oss << move->col << ',' << move->row;
+    return oss.str();
 }
 
 class Engine {
@@ -99,7 +128,12 @@ public:
             << ", controller=\"" << gomoku::toString(config_.controller) << "\""
             << ", time_ms=" << config_.aiMoveTimeMs
             << ", threads=" << config_.searchThreads
-            << ", strict_defense=" << (config_.strictDefenseFiltering ? 1 : 0);
+            << ", strict_defense=" << (config_.strictDefenseFiltering ? 1 : 0)
+            << ", book=" << (config_.openingBookEnabled ? 1 : 0)
+            << ", nullmove=" << (config_.nullMovePruningEnabled ? 1 : 0)
+            << ", defensive_filter=" << (config_.defensiveFilteringEnabled ? 1 : 0)
+            << ", compare_no_def_filter=" << (config_.compareNoDefFilterSearch ? 1 : 0)
+            << ", next_iter_branching=" << config_.nextIterBranchingEstimate;
         writeLine(oss.str());
     }
 
@@ -229,6 +263,11 @@ private:
         mc.aiMoveTimeMs = config_.aiMoveTimeMs;
         mc.searchThreads = config_.searchThreads;
         mc.strictDefenseFiltering = config_.strictDefenseFiltering;
+        mc.openingBookEnabled = config_.openingBookEnabled;
+        mc.nullMovePruningEnabled = config_.nullMovePruningEnabled;
+        mc.defensiveFilteringEnabled = config_.defensiveFilteringEnabled;
+        mc.compareNoDefFilterSearch = config_.compareNoDefFilterSearch;
+        mc.nextIterBranchingEstimate = config_.nextIterBranchingEstimate;
         match_.emplace(mc);
     }
 
@@ -277,6 +316,8 @@ private:
                 << " complete=" << (summary->completedLastDepth ? 1 : 0)
                 << " root=" << summary->rootCandidateCount
                 << " src=" << summary->decisionSource
+                << " book=" << (summary->usedOpeningBook ? 1 : 0)
+                << " thseq=" << (summary->usedThreatSequence ? 1 : 0)
                 << " nps=" << nps
                 << " tt=" << summary->ttHits
                 << " threat_nodes=" << summary->threatNodes
@@ -288,7 +329,20 @@ private:
                 << " hard=" << summary->hardLimitMs
                 << " maxnodes=" << summary->maxNodes
                 << " threads=" << summary->requestedRootThreads
-                << " panic=" << (summary->panicModeEntered ? 1 : 0);
+                << " panic=" << (summary->panicModeEntered ? 1 : 0)
+                << " stop_reason=" << summary->stopReason
+                << " last_iter_ms=" << summary->lastIterationMs
+                << " next_iter_est_ms=" << summary->nextIterationEstimateMs
+                << " def_before=" << summary->rootCandidateCountBeforeDefFilter
+                << " def_after=" << summary->rootCandidateCountAfterDefFilter
+                << " def_applied=" << (summary->defFilterApplied ? 1 : 0)
+                << " def_reason=" << summary->defFilterReason
+                << " def_removed=" << formatMoveList(summary->rootMovesRemovedByDefFilter)
+                << " nofilter=" << formatOptionalMove(summary->noDefFilterBestMove)
+                << " nofilter_diff=" << (summary->noDefFilterBestMoveDiffers ? 1 : 0)
+                << " nofilter_in_before=" << (summary->noDefFilterBestMoveWasInBeforeDefFilter ? 1 : 0)
+                << " filtered_best=" << (summary->filteredOutBestMoveFromWiderSearch ? 1 : 0)
+                << " pv=" << formatMoveList(summary->principalVariation);
             logLine(log.str());
         }
         writeLine(oss.str());
@@ -320,7 +374,9 @@ std::vector<std::tuple<int, int, int>> readBoardBlock() {
 
 void printUsage() {
     std::cerr << "Usage: gomoku_gomocup [--controller rookie|club|tactical|expert] "
-                 "[--time-ms N] [--threads N] [--no-strict-defense]\n";
+                 "[--time-ms N] [--threads N] [--no-strict-defense] "
+                 "[--no-opening-book] [--no-null-move] [--no-defensive-filter] "
+                 "[--compare-no-def-filter] [--next-iter-branching-estimate X]\n";
 }
 
 }  // namespace
@@ -344,6 +400,17 @@ int main(int argc, char** argv) {
             config.searchThreads = std::max(0, std::atoi(argv[++i]));
         } else if (arg == "--no-strict-defense") {
             config.strictDefenseFiltering = false;
+        } else if (arg == "--no-opening-book") {
+            config.openingBookEnabled = false;
+        } else if (arg == "--no-null-move") {
+            config.nullMovePruningEnabled = false;
+        } else if (arg == "--no-defensive-filter") {
+            config.defensiveFilteringEnabled = false;
+            config.strictDefenseFiltering = false;
+        } else if (arg == "--compare-no-def-filter") {
+            config.compareNoDefFilterSearch = true;
+        } else if ((arg == "--next-iter-branching-estimate" || arg == "--next-iter-ebf") && i + 1 < argc) {
+            config.nextIterBranchingEstimate = std::max(0.0, std::atof(argv[++i]));
         } else if (arg == "--help" || arg == "-h") {
             printUsage();
             return 0;
@@ -358,7 +425,12 @@ int main(int argc, char** argv) {
     logLine("ready (controller=" + std::string(gomoku::toString(config.controller)) +
             ", time_ms=" + std::to_string(config.aiMoveTimeMs) +
             ", threads=" + std::to_string(config.searchThreads) +
-            ", strict_defense=" + std::string(config.strictDefenseFiltering ? "1" : "0") + ")");
+            ", strict_defense=" + std::string(config.strictDefenseFiltering ? "1" : "0") +
+            ", book=" + std::string(config.openingBookEnabled ? "1" : "0") +
+            ", nullmove=" + std::string(config.nullMovePruningEnabled ? "1" : "0") +
+            ", defensive_filter=" + std::string(config.defensiveFilteringEnabled ? "1" : "0") +
+            ", compare_no_def_filter=" + std::string(config.compareNoDefFilterSearch ? "1" : "0") +
+            ", next_iter_branching=" + std::to_string(config.nextIterBranchingEstimate) + ")");
 
     std::string line;
     while (std::getline(std::cin, line)) {

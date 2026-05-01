@@ -137,6 +137,14 @@ int attackThreatBonus(const MoveThreatInfo& info) {
     return 0;
 }
 
+int forcingPotentialBonus(int rawBonus) {
+    // The exponential per-cell totalPotential already carries the article's
+    // holistic field evaluation. This additional forcing field keeps the
+    // tactical step-function bonuses, but sums them for both sides instead
+    // of using a single perspective-only maximum.
+    return rawBonus / 4;
+}
+
 bool isNearExistingStone(const GameState& state, Move move) {
     bumpNearStoneChecks();
     return state.isNearStone(move);
@@ -358,14 +366,14 @@ int StaticEvaluator::evaluate(const GameState& state, Player perspective) {
     const Player opponent = otherPlayer(perspective);
     int score = evaluatePlayerPotential(state, perspective) - evaluatePlayerPotential(state, opponent);
 
-    int perspectiveBestThreat = 0;
+    int forcingField = 0;
     for (int row = 0; row < state.boardSize(); ++row) {
         for (int col = 0; col < state.boardSize(); ++col) {
             const Player cell = state.cellAt(row, col);
             const Move move {row, col};
             if (cell == Player::None) {
-                perspectiveBestThreat = std::max(
-                    perspectiveBestThreat, attackThreatBonus(state.threatInfoAt(move, perspective)));
+                forcingField += forcingPotentialBonus(attackThreatBonus(state.threatInfoAt(move, perspective)));
+                forcingField -= forcingPotentialBonus(attackThreatBonus(state.threatInfoAt(move, opponent)));
                 continue;
             }
 
@@ -377,7 +385,7 @@ int StaticEvaluator::evaluate(const GameState& state, Player perspective) {
             }
         }
     }
-    score += perspectiveBestThreat;
+    score += std::clamp(forcingField, -1'000'000, 1'000'000);
 
     if (state.sideToMove() == perspective) {
         score += 12;

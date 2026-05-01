@@ -446,7 +446,15 @@ void Match::chargeAiClock(Seat seat, std::int64_t elapsedMs, bool countsAsPeriod
 SearchConfig Match::makeSearchConfig() const {
     SearchConfig config;
     config.maxRootThreads = config_.searchThreads;
-    config.useStrictDefenseFiltering = config_.strictDefenseFiltering;
+    config.useOpeningBook = config_.openingBookEnabled;
+    config.useNullMovePruning = config_.nullMovePruningEnabled;
+    config.useDefensiveFiltering = config_.defensiveFilteringEnabled;
+    config.useStrictDefenseFiltering = config_.strictDefenseFiltering && config.useDefensiveFiltering;
+    config.disableOpeningBook = !config_.openingBookEnabled;
+    config.disableNullMovePruning = !config_.nullMovePruningEnabled;
+    config.disableDefensiveFiltering = !config_.defensiveFilteringEnabled;
+    config.compareNoDefFilterSearch = config_.compareNoDefFilterSearch;
+    config.nextIterBranchingEstimate = config_.nextIterBranchingEstimate;
     int heuristicBudgetMs = std::max(1, config_.aiMoveTimeMs);
     if (const auto effectiveClock = effectiveClockStateForTurn()) {
         config.clock = *effectiveClock;

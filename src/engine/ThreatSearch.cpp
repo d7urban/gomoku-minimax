@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
+#include <set>
 
 #include "gomoku/PatternAnalysis.hpp"
 
@@ -266,6 +267,65 @@ bool intersects(const std::vector<Move>& left, const std::vector<Move>& right) {
     return false;
 }
 
+bool containsMove(const std::vector<Move>& moves, Move move) {
+    return std::find(moves.begin(), moves.end(), move) != moves.end();
+}
+
+void appendThreatFootprint(std::vector<Move>& footprint, const ThreatStep& threat) {
+    addUniqueValue(footprint, threat.move);
+    for (const Move& move : threat.defenseMoves) {
+        addUniqueValue(footprint, move);
+    }
+    for (const Move& move : threat.continuationMoves) {
+        addUniqueValue(footprint, move);
+    }
+    for (const Move& move : threat.requiredEmpty) {
+        addUniqueValue(footprint, move);
+    }
+    for (const Move& move : threat.supportMoves) {
+        addUniqueValue(footprint, move);
+    }
+}
+
+bool threatsTouch(const ThreatStep& left, const ThreatStep& right) {
+    std::vector<Move> leftFootprint;
+    std::vector<Move> rightFootprint;
+    appendThreatFootprint(leftFootprint, left);
+    appendThreatFootprint(rightFootprint, right);
+    return intersects(leftFootprint, rightFootprint);
+}
+
+bool canOrderBefore(const ThreatStep& first, const ThreatStep& second) {
+    // The all-defenses abstraction makes the defender occupy all defense
+    // squares after `first`, and reserved-empty squares must stay empty for
+    // later threats. If `second` needs any of those squares, this ordering
+    // is not a valid threat-DAG edge.
+    if (first.move != second.move && containsMove(first.requiredEmpty, second.move)) {
+        return false;
+    }
+    if (first.move != second.move && containsMove(second.requiredEmpty, first.move)) {
+        return false;
+    }
+    if (containsMove(first.defenseMoves, second.move)) {
+        return false;
+    }
+    if (intersects(first.defenseMoves, second.requiredEmpty)) {
+        return false;
+    }
+    return true;
+}
+
+bool hasValidTopologicalOrder(const ThreatStep& left, const ThreatStep& right) {
+    return canOrderBefore(left, right) || canOrderBefore(right, left);
+}
+
+void appendUniqueMoves(std::vector<Move>& destination, const std::vector<Move>& source) {
+    for (const Move& move : source) {
+        addUniqueValue(destination, move);
+    }
+    normalizeMoves(destination);
+}
+
 class ThreatSearchRunner {
 public:
     explicit ThreatSearchRunner(ThreatSequenceConfig config)
@@ -297,6 +357,7 @@ private:
     Clock::time_point startTime_ {};
     std::uint64_t nodes_ {0};
     std::vector<ThreatGraphNode> graph_;
+    std::set<std::vector<int>> combinationKeys_;
 
     bool shouldStop() const {
         if (config_.maxNodes > 0 && nodes_ > config_.maxNodes) {
@@ -330,12 +391,15 @@ private:
 
         const auto threats = enumerateThreatsInternal(
             state, attacker, config_.maxThreatMoves, 0, config_.minimumThreat).threats;
+        std::vector<ThreatStep> siblingThreats;
+        siblingThreats.reserve(threats.size());
         for (ThreatStep threat : threats) {
             if (std::find(reservedEmpty.begin(), reservedEmpty.end(), threat.move) != reservedEmpty.end() || !allSquaresEmpty(state, threat.requiredEmpty)) {
                 continue;
             }
 
-            threat.nodeId = appendGraphNode(threat, path);
+            threat.nodeId = appendGraphNode(threat, path, siblingThreats);
+            siblingThreats.push_back(threat);
 
             GameState afterAttack = state;
             if (!afterAttack.applyMove(threat.move)) {
@@ -363,6 +427,13 @@ private:
             }
             abstractAfter.setSideToMoveForAnalysis(attacker);
             if (!abstractCanWin(abstractAfter, attacker, depth - 1, nextReserved)) {
+                std::vector<ThreatStep> candidate {threat};
+                std::vector<Move> refutations;
+                if (sequenceRefutedByCounterThreats(state, attacker, candidate, refutations)) {
+                    for (const Move& refutation : refutations) {
+                        addUniqueValue(outRefutations, refutation);
+                    }
+                }
                 continue;
             }
 
@@ -620,7 +691,54 @@ private:
         return replies;
     }
 
-    int appendGraphNode(const ThreatStep& threat, const std::vector<ThreatStep>& path) {
+    int appendDependencyCombinationNode(const std::vector<int>& dependencies) {
+        std::vector<int> key = dependencies;
+        std::sort(key.begin(), key.end());
+        if (key.size() < 2 || combinationKeys_.contains(key)) {
+            return -1;
+        }
+
+        ThreatGraphNode combination;
+        combination.id = static_cast<int>(graph_.size());
+        combination.kind = ThreatGraphNodeKind::Combination;
+        combination.dependencies = key;
+        graph_.push_back(combination);
+        combinationKeys_.insert(std::move(key));
+        return static_cast<int>(graph_.size()) - 1;
+    }
+
+    void appendThreatCombinationNode(const ThreatStep& left, const ThreatStep& right, int leftNodeId, int rightNodeId) {
+        if (leftNodeId < 0 || rightNodeId < 0 || leftNodeId == rightNodeId) {
+            return;
+        }
+        if (!threatsTouch(left, right) || !hasValidTopologicalOrder(left, right)) {
+            return;
+        }
+
+        std::vector<int> key {leftNodeId, rightNodeId};
+        std::sort(key.begin(), key.end());
+        if (combinationKeys_.contains(key)) {
+            return;
+        }
+
+        ThreatGraphNode combination;
+        combination.id = static_cast<int>(graph_.size());
+        combination.kind = ThreatGraphNodeKind::Combination;
+        combination.move = right.move;
+        combination.type = threatSeverity(left.type) >= threatSeverity(right.type) ? left.type : right.type;
+        combination.dependencies = key;
+        appendUniqueMoves(combination.defenseMoves, left.defenseMoves);
+        appendUniqueMoves(combination.defenseMoves, right.defenseMoves);
+        appendUniqueMoves(combination.continuationMoves, left.continuationMoves);
+        appendUniqueMoves(combination.continuationMoves, right.continuationMoves);
+        appendUniqueMoves(combination.requiredEmpty, left.requiredEmpty);
+        appendUniqueMoves(combination.requiredEmpty, right.requiredEmpty);
+
+        graph_.push_back(std::move(combination));
+        combinationKeys_.insert(std::move(key));
+    }
+
+    int appendGraphNode(const ThreatStep& threat, const std::vector<ThreatStep>& path, const std::vector<ThreatStep>& siblings) {
         std::vector<int> dependencies;
         for (const ThreatStep& prior : path) {
             if (std::find(threat.supportMoves.begin(), threat.supportMoves.end(), prior.move) != threat.supportMoves.end()) {
@@ -637,19 +755,23 @@ private:
         node.requiredEmpty = threat.requiredEmpty;
 
         if (dependencies.size() > 1) {
-            ThreatGraphNode combination;
-            combination.id = static_cast<int>(graph_.size());
-            combination.kind = ThreatGraphNodeKind::Combination;
-            combination.dependencies = dependencies;
-            graph_.push_back(combination);
-            node.dependencies = {combination.id};
+            const int combinationId = appendDependencyCombinationNode(dependencies);
+            node.dependencies = combinationId >= 0 ? std::vector<int> {combinationId} : dependencies;
         } else {
             node.dependencies = dependencies;
         }
 
         node.id = static_cast<int>(graph_.size());
         graph_.push_back(node);
-        return node.id;
+        const int nodeId = node.id;
+
+        for (const ThreatStep& prior : path) {
+            appendThreatCombinationNode(prior, threat, prior.nodeId, nodeId);
+        }
+        for (const ThreatStep& sibling : siblings) {
+            appendThreatCombinationNode(sibling, threat, sibling.nodeId, nodeId);
+        }
+        return nodeId;
     }
 };
 

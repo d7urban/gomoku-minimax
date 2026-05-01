@@ -28,7 +28,12 @@ struct SearchConfig {
     bool useOpeningBook {false};
     bool useVcfAtLeaves {true};
     bool useWinVerificationResearch {true};
+    bool disableOpeningBook {false};
+    bool disableNullMovePruning {false};
+    bool disableDefensiveFiltering {false};
+    bool compareNoDefFilterSearch {false};
     int maxRootThreads {0};
+    double nextIterBranchingEstimate {0.0};
     int vcfMaxDepth {10};
     std::uint64_t vcfNodeBudget {600};
     // Per-call snapshot of the match clock. Transitional home; the
@@ -55,15 +60,29 @@ struct SearchSummary {
     int vcfHits {0};
     int winVerifications {0};
     int rootCandidateCount {0};
+    int rootCandidateCountBeforeDefFilter {0};
+    int rootCandidateCountAfterDefFilter {0};
     int threatSequenceLength {0};
     int requestedRootThreads {0};
+    int lastIterationMs {0};
+    int nextIterationEstimateMs {0};
     bool completedLastDepth {false};
     bool usedThreatSequence {false};
     bool usedOpeningBook {false};
     bool panicModeEntered {false};
+    bool defFilterApplied {false};
+    bool filteredOutBestMoveFromWiderSearch {false};
+    bool noDefFilterBestMoveDiffers {false};
+    bool noDefFilterBestMoveWasInBeforeDefFilter {false};
     std::string decisionSource {"search"};
     std::string openingBookName;
+    std::string defFilterReason {"none"};
+    std::string stopReason {"not_started"};
+    std::optional<Move> noDefFilterBestMove;
     std::vector<Move> principalVariation;
+    std::vector<Move> rootMovesBeforeDefFilter;
+    std::vector<Move> rootMovesAfterDefFilter;
+    std::vector<Move> rootMovesRemovedByDefFilter;
 };
 
 struct SearchResult {

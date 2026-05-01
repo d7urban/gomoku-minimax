@@ -81,11 +81,11 @@ struct TimeGovernorConfig {
     // Reserved for finalization/stop slack reported in MoveBudget.
     std::int64_t finalizationSlackMs {50};
 
-    // Predicted cost of the next ID iteration relative to the last. 3.0
-    // is a conservative default for alpha-beta + PVS with good move
-    // ordering; smaller values let the search start an extra iteration
-    // more often, larger values are safer against overshoot.
-    double nextIterBranchingEstimate {3.0};
+    // Predicted cost of the next ID iteration relative to the last. 2.5
+    // is a middle ground between the old conservative 3.0 and the overly
+    // permissive 1.5 probe, which spent too much time in discarded partial
+    // iterations before the hard cap stopped it.
+    double nextIterBranchingEstimate {2.5};
 
     // Threat asymmetry: defence bonus intentionally larger than attack
     // bonus. Rationale — a wrong defensive move usually loses on the

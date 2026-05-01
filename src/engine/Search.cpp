@@ -11,6 +11,7 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -246,6 +247,7 @@ struct NodeTacticalState {
     bool ownThreatFound {false};
     bool nullGuardSearched {false};
     bool nullGuardFoundThreatSequence {false};
+    int nullGuardMaxDepthSearched {0};
     bool panicMode {false};
     std::vector<Move> defenseSet;
 };
@@ -254,7 +256,6 @@ enum class CandidateStage {
     Default,
     OpeningLarge,
     DefendSimpleFour,
-    DefendOpenThree,
     ForcingRoot,
     ForcingChild,
 };
@@ -274,6 +275,32 @@ void addUniqueMove(std::vector<Move>& moves, Move move) {
     if (std::find(moves.begin(), moves.end(), move) == moves.end()) {
         moves.push_back(move);
     }
+}
+
+std::vector<Move> candidateMoveList(const std::vector<CandidateMove>& candidates) {
+    std::vector<Move> moves;
+    moves.reserve(candidates.size());
+    for (const CandidateMove& candidate : candidates) {
+        moves.push_back(candidate.move);
+    }
+    return moves;
+}
+
+bool containsMove(const std::vector<Move>& moves, Move move) {
+    return std::find(moves.begin(), moves.end(), move) != moves.end();
+}
+
+std::vector<Move> removedCandidateMoves(const std::vector<CandidateMove>& before,
+                                         const std::vector<CandidateMove>& after) {
+    const std::vector<Move> afterMoves = candidateMoveList(after);
+    std::vector<Move> removed;
+    removed.reserve(before.size());
+    for (const CandidateMove& candidate : before) {
+        if (!containsMove(afterMoves, candidate.move)) {
+            removed.push_back(candidate.move);
+        }
+    }
+    return removed;
 }
 
 constexpr int scoreToTT(int score, int ply) {
@@ -527,6 +554,13 @@ public:
         defensiveBlockingMoves_.clear();
         nodeTacticalStateCache_.clear();
         panicModeEntered_ = false;
+        rootCandidateCountBeforeDefFilter_ = 0;
+        rootCandidateCountAfterDefFilter_ = 0;
+        rootDefFilterApplied_ = false;
+        rootDefFilterReason_ = "none";
+        rootMovesBeforeDefFilter_.clear();
+        rootMovesAfterDefFilter_.clear();
+        rootMovesRemovedByDefFilter_.clear();
 
         if (config_.useOpeningBook) {
             if (const auto bookHit = lookupOpeningBookMove(state)) {
@@ -536,6 +570,7 @@ public:
                 result.summary.completedLastDepth = true;
                 result.summary.usedOpeningBook = true;
                 result.summary.decisionSource = "opening_book";
+                result.summary.stopReason = "opening_book";
                 result.summary.openingBookName = std::string(bookHit->lineName);
                 result.summary.principalVariation = {bookHit->move};
                 return finalizeResult(std::move(result));
@@ -551,6 +586,7 @@ public:
             result.summary.rootCandidateCount = static_cast<int>(winningMoves.size());
             result.summary.completedLastDepth = true;
             result.summary.decisionSource = "immediate_win";
+            result.summary.stopReason = "immediate_win";
             result.summary.principalVariation = {winningMoves.front()};
             return finalizeResult(std::move(result));
         }
@@ -564,8 +600,14 @@ public:
             result.summary.rootCandidateCount = 1;
             result.summary.completedLastDepth = true;
             result.summary.decisionSource = "forced_block";
+            result.summary.stopReason = "forced_block";
             result.summary.principalVariation = {opponentWinningMoves.front()};
             return finalizeResult(std::move(result));
+        }
+        if (opponentWinningMoves.size() > 1U) {
+            panicModeEntered_ = true;
+            result.summary.panicModeEntered = true;
+            nodeTacticalStateCache_[state.positionHash()].panicMode = true;
         }
 
         if (config_.useRootThreatSearch && shouldRunRootThreatSearch(state)) {
@@ -587,6 +629,7 @@ public:
                 result.summary.usedThreatSequence = true;
                 result.summary.completedLastDepth = true;
                 result.summary.decisionSource = "threat_sequence";
+                result.summary.stopReason = "threat_sequence";
                 result.threatSequence = threatResult;
                 result.summary.principalVariation.reserve(threatResult.sequence.size());
                 for (const ThreatStep& step : threatResult.sequence) {
@@ -628,6 +671,7 @@ public:
         result.summary.rootCandidateCount = static_cast<int>(rootMoves.size());
         if (rootMoves.empty()) {
             result.summary.score = StaticEvaluator::evaluate(rootState, rootState.sideToMove());
+            result.summary.stopReason = "no_candidates";
             return finalizeResult(std::move(result));
         }
 
@@ -636,8 +680,15 @@ public:
 
         int previousScore = result.summary.score;
         int lastIterationCostMs = 0;
+        int nextIterationEstimateMs = 0;
+        std::string stopReason = "max_depth";
         for (int depth = 1; depth <= config_.maxDepth; ++depth) {
-            if (shouldStop() || (depth > 1 && !panicModeEntered_ && softLimitReached())) {
+            if (shouldStop()) {
+                stopReason = stopReasonFromLimits();
+                break;
+            }
+            if (depth > 1 && !panicModeEntered_ && softLimitReached()) {
+                stopReason = "soft_limit";
                 break;
             }
 
@@ -651,10 +702,11 @@ public:
                 && effectiveNextIterationEstimate() > 0.0
                 && budget_->hardCapMs > 0)
             {
-                const std::int64_t predictedNext = static_cast<std::int64_t>(
-                    static_cast<double>(lastIterationCostMs) * effectiveNextIterationEstimate());
+                nextIterationEstimateMs = predictedNextIterationMs(lastIterationCostMs);
+                const std::int64_t predictedNext = nextIterationEstimateMs;
                 const std::int64_t boundary = budget_->hardCapMs - budget_->finalizationSlackMs;
                 if (static_cast<std::int64_t>(elapsedMs()) + predictedNext > boundary) {
+                    stopReason = "affordability";
                     break;
                 }
             }
@@ -692,6 +744,7 @@ public:
             }
 
             if (!completedDepth_ || !iteration.bestMove.has_value()) {
+                stopReason = stopReasonFromLimits();
                 break;
             }
 
@@ -703,12 +756,12 @@ public:
             result.summary.principalVariation = extractPrincipalVariation(state, *iteration.bestMove, depth);
             previousScore = iteration.score;
             lastIterationCostMs = std::max(0, elapsedMs() - iterationStartMs);
+            result.summary.lastIterationMs = lastIterationCostMs;
             if (iteration.score <= -kPanicLosingThreshold) {
                 panicModeEntered_ = true;
                 result.summary.panicModeEntered = true;
                 nodeTacticalStateCache_[rootState.positionHash()].panicMode = true;
             }
-            publishProgress(result.summary);
 
             // Update best-move stability state *before* checking softLimit
             // so the effective soft cap reflects this iteration's result.
@@ -726,12 +779,17 @@ public:
                 && std::abs(iteration.score - *lastIterationScore_) >= budget_->scoreSwingThreshold;
             lastIterationBestMove_ = iteration.bestMove;
             lastIterationScore_ = iteration.score;
+            nextIterationEstimateMs = predictedNextIterationMs(lastIterationCostMs);
+            result.summary.nextIterationEstimateMs = nextIterationEstimateMs;
+            publishProgress(result.summary);
 
             if (!panicModeEntered_ && softLimitReached()) {
+                stopReason = "soft_limit";
                 break;
             }
         }
 
+        result.summary.stopReason = stopReason;
         return finalizeResult(std::move(result));
     }
 
@@ -763,6 +821,13 @@ private:
     std::vector<std::optional<Move>> counterMoves_;
     std::vector<Move> defensiveBlockingMoves_;
     std::unordered_map<std::uint64_t, NodeTacticalState> nodeTacticalStateCache_;
+    int rootCandidateCountBeforeDefFilter_ {0};
+    int rootCandidateCountAfterDefFilter_ {0};
+    bool rootDefFilterApplied_ {false};
+    std::string rootDefFilterReason_ {"none"};
+    std::vector<Move> rootMovesBeforeDefFilter_;
+    std::vector<Move> rootMovesAfterDefFilter_;
+    std::vector<Move> rootMovesRemovedByDefFilter_;
 
     SearchResult finalizeResult(SearchResult result) const {
         result.summary.maxDepthVisited = std::max(result.summary.maxDepthVisited,
@@ -779,6 +844,13 @@ private:
         result.summary.hardLimitMs = hardTimeLimitMs();
         result.summary.requestedRootThreads = config_.maxRootThreads;
         result.summary.panicModeEntered = result.summary.panicModeEntered || panicModeEntered_;
+        result.summary.rootCandidateCountBeforeDefFilter = rootCandidateCountBeforeDefFilter_;
+        result.summary.rootCandidateCountAfterDefFilter = rootCandidateCountAfterDefFilter_;
+        result.summary.defFilterApplied = result.summary.defFilterApplied || rootDefFilterApplied_;
+        result.summary.defFilterReason = rootDefFilterReason_;
+        result.summary.rootMovesBeforeDefFilter = rootMovesBeforeDefFilter_;
+        result.summary.rootMovesAfterDefFilter = rootMovesAfterDefFilter_;
+        result.summary.rootMovesRemovedByDefFilter = rootMovesRemovedByDefFilter_;
         return result;
     }
 
@@ -801,6 +873,13 @@ private:
         progress.hardLimitMs = hardTimeLimitMs();
         progress.requestedRootThreads = config_.maxRootThreads;
         progress.panicModeEntered = progress.panicModeEntered || panicModeEntered_;
+        progress.rootCandidateCountBeforeDefFilter = rootCandidateCountBeforeDefFilter_;
+        progress.rootCandidateCountAfterDefFilter = rootCandidateCountAfterDefFilter_;
+        progress.defFilterApplied = progress.defFilterApplied || rootDefFilterApplied_;
+        progress.defFilterReason = rootDefFilterReason_;
+        progress.rootMovesBeforeDefFilter = rootMovesBeforeDefFilter_;
+        progress.rootMovesAfterDefFilter = rootMovesAfterDefFilter_;
+        progress.rootMovesRemovedByDefFilter = rootMovesRemovedByDefFilter_;
         config_.progressCallback(progress);
     }
 
@@ -834,6 +913,16 @@ private:
         }
 
         return false;
+    }
+
+    std::string stopReasonFromLimits() const {
+        if (config_.maxNodes > 0 && nodes_ >= config_.maxNodes) {
+            return "node_limit";
+        }
+        if (hardTimeLimitMs() > 0 && elapsedMs() >= hardTimeLimitMs()) {
+            return "hard_limit";
+        }
+        return "incomplete";
     }
 
     // Effective soft limit used for early-stop decisions. Always derived
@@ -883,6 +972,20 @@ private:
         return std::max(0.0, estimate);
     }
 
+    int predictedNextIterationMs(int lastIterationCostMs) const {
+        if (lastIterationCostMs <= 0) {
+            return 0;
+        }
+        const double estimate = effectiveNextIterationEstimate();
+        if (estimate <= 0.0) {
+            return 0;
+        }
+        const std::int64_t predicted = static_cast<std::int64_t>(
+            static_cast<double>(lastIterationCostMs) * estimate);
+        return static_cast<int>(std::min<std::int64_t>(
+            predicted, static_cast<std::int64_t>(std::numeric_limits<int>::max())));
+    }
+
     bool shouldRunRootThreatSearch(const GameState& state) const {
         const Player side = state.sideToMove();
         const Player opponent = otherPlayer(side);
@@ -890,12 +993,53 @@ private:
             || state.hasThreatAtLeast(opponent, ThreatType::OpenThree);
     }
 
-    std::size_t candidateBudget(const GameState& state) const {
+    static std::size_t rootCandidateBudgetForTimeMs(int timeLimitMs) {
+        if (timeLimitMs >= 20'000) {
+            return 96;
+        }
+        if (timeLimitMs >= 10'000) {
+            return 80;
+        }
+        if (timeLimitMs >= 5'000) {
+            return 64;
+        }
+        if (timeLimitMs >= 2'000) {
+            return 48;
+        }
+        return 32;
+    }
+
+    static std::size_t earlyCandidateBudgetForTimeMs(int timeLimitMs) {
+        if (timeLimitMs >= 20'000) {
+            return 56;
+        }
+        if (timeLimitMs >= 10'000) {
+            return 48;
+        }
+        if (timeLimitMs >= 5'000) {
+            return 40;
+        }
+        if (timeLimitMs >= 2'000) {
+            return 32;
+        }
+        return 28;
+    }
+
+    std::size_t candidateBudget(const GameState& state, int ply) const {
+        std::size_t budget = std::max<std::size_t>(1, config_.maxCandidateMoves);
+        if (config_.maxCandidateMoves >= 28) {
+            if (ply == 0) {
+                budget = std::max(budget, rootCandidateBudgetForTimeMs(hardTimeLimitMs()));
+            } else if (ply <= 2) {
+                budget = std::max(budget, earlyCandidateBudgetForTimeMs(hardTimeLimitMs()));
+            }
+        }
+
         const Player opponent = otherPlayer(state.sideToMove());
         if (state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) {
-            return std::max<std::size_t>(config_.maxCandidateMoves, 32);
+            return std::max<std::size_t>(budget, 32);
         }
-        return std::max<std::size_t>(1, config_.maxCandidateMoves);
+        return budget;
     }
 
     static int candidateCentralityScore(const GameState& state, Move move) {
@@ -1056,8 +1200,9 @@ private:
 
     std::vector<CandidateMove> generateDefaultStageCandidates(const GameState& state,
                                                               Player player,
-                                                              std::size_t maxMoves) const {
-        return scoreAndSortMoves(state, player, collectNeighborhoodMoves(state, 2), maxMoves);
+                                                              std::size_t maxMoves,
+                                                              int radius = 2) const {
+        return scoreAndSortMoves(state, player, collectNeighborhoodMoves(state, radius), maxMoves);
     }
 
     std::vector<CandidateMove> generateOpeningLargeCandidates(const GameState& state,
@@ -1078,7 +1223,8 @@ private:
         for (const Move& move : moves) {
             const MoveThreatInfo attackInfo = state.threatInfoAt(move, player);
             const MoveThreatInfo opponentThreatHere = state.threatInfoAt(move, opponent);
-            const bool defends = threatSeverity(opponentThreatHere.best) >= threatSeverity(ThreatType::OpenFour)
+            const ThreatType defenseThreshold = opponentFourOnBoard ? ThreatType::OpenFour : ThreatType::SimpleFour;
+            const bool defends = threatSeverity(opponentThreatHere.best) >= threatSeverity(defenseThreshold)
                 || (!opponentFourOnBoard && threatSeverityEnhanced(opponentThreatHere) >= 600);
             const bool counters = isDefensiveCounterMove(attackInfo, opponentFourOnBoard);
             if (!defends && !counters) {
@@ -1163,9 +1309,9 @@ private:
         return risk;
     }
 
-    void applyRootReplySafetyFilter(const GameState& state, Player player, std::vector<CandidateMove>& candidates) const {
+    std::vector<Move> applyRootReplySafetyFilter(const GameState& state, Player player, std::vector<CandidateMove>& candidates) const {
         if (candidates.size() <= 1) {
-            return;
+            return {};
         }
 
         int bestRisk = std::numeric_limits<int>::max();
@@ -1177,21 +1323,78 @@ private:
             bestRisk = std::min(bestRisk, risk);
         }
 
-        if (bestRisk > threatSeverity(ThreatType::Two)) {
-            return;
+        std::vector<Move> missingBestRiskMoves;
+        for (const Move& move : state.legalMoves()) {
+            const bool alreadyCandidate = std::any_of(candidates.begin(), candidates.end(),
+                [&](const CandidateMove& candidate) { return candidate.move == move; });
+            if (alreadyCandidate) {
+                continue;
+            }
+            const int risk = opponentReplyThreatRisk(state, move, player);
+            if (risk < bestRisk) {
+                bestRisk = risk;
+                missingBestRiskMoves = {move};
+            } else if (risk == bestRisk) {
+                addUniqueMove(missingBestRiskMoves, move);
+            }
+        }
+        for (const Move& move : missingBestRiskMoves) {
+            candidates.push_back(buildCandidateMove(state, move, player));
+        }
+        if (!missingBestRiskMoves.empty()) {
+            risks.clear();
+            risks.reserve(candidates.size());
+            bestRisk = std::numeric_limits<int>::max();
+            for (const CandidateMove& candidate : candidates) {
+                const int risk = opponentReplyThreatRisk(state, candidate.move, player);
+                risks.push_back(risk);
+                bestRisk = std::min(bestRisk, risk);
+            }
         }
 
-        std::vector<CandidateMove> filtered;
-        filtered.reserve(candidates.size());
+        if (bestRisk > threatSeverity(ThreatType::Two)) {
+            return {};
+        }
+
+        const Player opponent = otherPlayer(player);
+        const bool preserveTail = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour);
+        std::vector<Move> safeReplyMoves;
+        safeReplyMoves.reserve(candidates.size());
+        if (!preserveTail) {
+            std::vector<CandidateMove> filtered;
+            filtered.reserve(candidates.size());
+            for (std::size_t index = 0; index < candidates.size(); ++index) {
+                if (risks[index] == bestRisk
+                    || threatSeverity(candidates[index].threatInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+                    addUniqueMove(safeReplyMoves, candidates[index].move);
+                    filtered.push_back(candidates[index]);
+                }
+            }
+            if (!filtered.empty()) {
+                candidates = std::move(filtered);
+            }
+            return safeReplyMoves;
+        }
+
         for (std::size_t index = 0; index < candidates.size(); ++index) {
+            const bool immediateCounter =
+                threatSeverity(candidates[index].threatInfo.best) >= threatSeverity(ThreatType::Five);
             if (risks[index] == bestRisk
-                || threatSeverity(candidates[index].threatInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
-                filtered.push_back(candidates[index]);
+                || immediateCounter) {
+                addUniqueMove(safeReplyMoves, candidates[index].move);
+            }
+        }
+        std::vector<CandidateMove> filtered;
+        filtered.reserve(safeReplyMoves.size());
+        for (const CandidateMove& candidate : candidates) {
+            if (containsMove(safeReplyMoves, candidate.move)) {
+                filtered.push_back(candidate);
             }
         }
         if (!filtered.empty()) {
             candidates = std::move(filtered);
         }
+        return safeReplyMoves;
     }
 
     bool shouldRunStrictDefenseSearch(const GameState& state, Player defender) const {
@@ -1199,7 +1402,7 @@ private:
             return false;
         }
         const Player attacker = otherPlayer(defender);
-        return state.hasThreatAtLeast(attacker, ThreatType::OpenThree);
+        return state.hasThreatAtLeast(attacker, ThreatType::SimpleFour);
     }
 
     ThreatSequenceConfig strictDefenseThreatConfig() const {
@@ -1276,14 +1479,27 @@ private:
         return candidates;
     }
 
+    static bool containsCandidateMove(const std::vector<CandidateMove>& candidates, Move move) {
+        return std::any_of(candidates.begin(), candidates.end(), [&](const CandidateMove& candidate) {
+            return candidate.move == move;
+        });
+    }
+
+    static std::vector<CandidateMove> mergePreferredCandidates(std::vector<CandidateMove> preferred,
+                                                               const std::vector<CandidateMove>& tail) {
+        for (const CandidateMove& candidate : tail) {
+            if (!containsCandidateMove(preferred, candidate.move)) {
+                preferred.push_back(candidate);
+            }
+        }
+        return preferred;
+    }
+
     CandidateStage chooseCandidateStage(const GameState& state, int ply) const {
         const Player player = state.sideToMove();
         const Player opponent = otherPlayer(player);
         if (config_.useDefensiveFiltering && state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) {
             return CandidateStage::DefendSimpleFour;
-        }
-        if (config_.useDefensiveFiltering && state.hasThreatAtLeast(opponent, ThreatType::OpenThree)) {
-            return CandidateStage::DefendOpenThree;
         }
         if (ply < 2 && state.moveCount() < 5) {
             return CandidateStage::OpeningLarge;
@@ -1338,22 +1554,29 @@ private:
         return rootIterationDepth_ <= 1;
     }
 
+    int extensionBudgetForRootIteration() const {
+        return rootIterationDepth_ > 0 ? 3 : 0;
+    }
+
     bool opponentHasBoundedThreatSequenceForNullGuard(const GameState& state, Player defender, int depth) {
         NodeTacticalState& entry = nodeTacticalStateCache_[state.positionHash()];
         if (entry.opponentThreatFound) {
             return true;
         }
-        if (entry.nullGuardSearched) {
+        const int threatDepth = std::clamp(depth, 2, 4);
+        if (entry.nullGuardSearched
+            && (entry.nullGuardFoundThreatSequence || entry.nullGuardMaxDepthSearched >= threatDepth)) {
             return entry.nullGuardFoundThreatSequence;
         }
 
         entry.nullGuardSearched = true;
+        entry.nullGuardMaxDepthSearched = std::max(entry.nullGuardMaxDepthSearched, threatDepth);
         const Player attacker = otherPlayer(defender);
         GameState attackerTurn = state;
         attackerTurn.setSideToMoveForAnalysis(attacker);
 
         ThreatSequenceConfig threatConfig;
-        threatConfig.maxDepth = std::clamp(depth, 2, 4);
+        threatConfig.maxDepth = threatDepth;
         threatConfig.maxNodes = config_.maxNodes > 0
             ? std::clamp<std::uint64_t>(config_.maxNodes / 128, 300, 2000)
             : 1000;
@@ -1363,7 +1586,7 @@ private:
 
         ThreatSequenceSearcher searcher(threatConfig);
         const ThreatSearchResult threat = searcher.searchWinningSequence(attackerTurn, attacker);
-        entry.nullGuardFoundThreatSequence = threat.foundWin;
+        entry.nullGuardFoundThreatSequence = entry.nullGuardFoundThreatSequence || threat.foundWin;
         return entry.nullGuardFoundThreatSequence;
     }
 
@@ -1487,19 +1710,45 @@ private:
         maxPlyVisited_ = std::max(maxPlyVisited_, worker.maxPlyVisited);
     }
 
+    void recordRootDefFilterTelemetry(const std::vector<CandidateMove>& before,
+                                      const std::vector<CandidateMove>& after,
+                                      bool applied,
+                                      const std::string& reason) {
+        rootCandidateCountBeforeDefFilter_ = static_cast<int>(before.size());
+        rootCandidateCountAfterDefFilter_ = static_cast<int>(after.size());
+        rootDefFilterApplied_ = applied;
+        rootDefFilterReason_ = applied ? reason : "none";
+        rootMovesBeforeDefFilter_ = candidateMoveList(before);
+        rootMovesAfterDefFilter_ = candidateMoveList(after);
+        rootMovesRemovedByDefFilter_ = applied ? removedCandidateMoves(before, after) : std::vector<Move> {};
+    }
+
     std::vector<CandidateMove> generateOrderedCandidates(const GameState& state, int ply, std::optional<Move> preferredMove = std::nullopt) {
         const Player player = state.sideToMove();
         const CandidateStage stage = chooseCandidateStage(state, ply);
-        const std::size_t budget = candidateBudget(state);
+        const std::size_t budget = candidateBudget(state, ply);
+        const int rootDefaultRadius = (ply == 0 && budget >= 64) ? 3 : 2;
+        const bool rootStage = ply == 0;
+        const bool rootMayUseDefFilter = rootStage
+            && config_.useDefensiveFiltering
+            && state.hasThreatAtLeast(otherPlayer(player), ThreatType::SimpleFour);
+        std::vector<CandidateMove> rootCandidatesBeforeDefFilter;
+        if (rootMayUseDefFilter) {
+            rootCandidatesBeforeDefFilter = generateDefaultStageCandidates(state, player, budget, rootDefaultRadius);
+        }
 
         std::vector<CandidateMove> candidates = strictDefenseCandidates(state, player);
+        bool defFilterApplied = rootStage && !candidates.empty();
+        std::string defFilterReason = defFilterApplied ? "strict_simple_four" : "none";
+        std::vector<Move> preferredDefensiveMoves;
         if (candidates.empty()) {
             switch (stage) {
                 case CandidateStage::DefendSimpleFour:
                     candidates = generateDefendStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
-                    break;
-                case CandidateStage::DefendOpenThree:
-                    candidates = generateDefendStageCandidates(state, player, false, std::max<std::size_t>(budget, 20));
+                    if (rootStage && !candidates.empty()) {
+                        defFilterApplied = true;
+                        defFilterReason = "simple_four";
+                    }
                     break;
                 case CandidateStage::ForcingRoot:
                     candidates = generateForcingStageCandidates(state, player, true, std::max<std::size_t>(budget, 16));
@@ -1512,22 +1761,49 @@ private:
                     break;
                 case CandidateStage::Default:
                 default:
-                    candidates = generateDefaultStageCandidates(state, player, budget);
+                    if (rootMayUseDefFilter && !rootCandidatesBeforeDefFilter.empty()) {
+                        candidates = rootCandidatesBeforeDefFilter;
+                    } else {
+                        candidates = generateDefaultStageCandidates(state, player, budget, rootDefaultRadius);
+                    }
                     break;
             }
+        }
+        if (stage == CandidateStage::DefendSimpleFour && !candidates.empty()) {
+            preferredDefensiveMoves = candidateMoveList(candidates);
+            std::vector<CandidateMove> tail;
+            if (rootMayUseDefFilter && !rootCandidatesBeforeDefFilter.empty()) {
+                tail = rootCandidatesBeforeDefFilter;
+            } else {
+                tail = generateDefaultStageCandidates(state, player, budget, rootDefaultRadius);
+            }
+            candidates = mergePreferredCandidates(std::move(candidates), tail);
         }
         if (candidates.empty() && stage != CandidateStage::Default) {
             // Staged tactical generators are intentionally selective, but
             // they must never strand the search with no legal move on a
             // non-terminal position. Fall back to the generic candidate
             // set if a specialized stage rejects everything.
-            candidates = generateDefaultStageCandidates(state, player, budget);
+            if (rootMayUseDefFilter && !rootCandidatesBeforeDefFilter.empty()) {
+                candidates = rootCandidatesBeforeDefFilter;
+            } else {
+                candidates = generateDefaultStageCandidates(state, player, budget, rootDefaultRadius);
+            }
+            defFilterApplied = false;
+            defFilterReason = "none";
+        }
+        if (rootStage) {
+            const std::vector<CandidateMove>& before = rootMayUseDefFilter
+                ? rootCandidatesBeforeDefFilter
+                : candidates;
+            recordRootDefFilterTelemetry(before, candidates, defFilterApplied, defFilterReason);
         }
         if (candidates.empty()) {
             return candidates;
         }
+        std::vector<Move> rootReplySafeMoves;
         if (ply == 0) {
-            applyRootReplySafetyFilter(state, player, candidates);
+            rootReplySafeMoves = applyRootReplySafetyFilter(state, player, candidates);
         }
 
         std::optional<Move> ttBestMove;
@@ -1549,10 +1825,22 @@ private:
         }
 
         std::stable_sort(candidates.begin(), candidates.end(), [&](const CandidateMove& left, const CandidateMove& right) {
+            const bool leftSafeReply = containsMove(rootReplySafeMoves, left.move);
+            const bool rightSafeReply = containsMove(rootReplySafeMoves, right.move);
+            if (leftSafeReply != rightSafeReply) {
+                return leftSafeReply;
+            }
+
             const bool leftPreferred = preferredMove.has_value() && left.move == *preferredMove;
             const bool rightPreferred = preferredMove.has_value() && right.move == *preferredMove;
             if (leftPreferred != rightPreferred) {
                 return leftPreferred;
+            }
+
+            const bool leftPreferredDefense = containsMove(preferredDefensiveMoves, left.move);
+            const bool rightPreferredDefense = containsMove(preferredDefensiveMoves, right.move);
+            if (leftPreferredDefense != rightPreferredDefense) {
+                return leftPreferredDefense;
             }
 
             const bool leftTt = ttBestMove.has_value() && left.move == *ttBestMove;
@@ -1620,8 +1908,7 @@ private:
         // Forced-four defense extension at the root (see negamax for detail).
         // Check-style attack extension also applies at root.
         const Player rootOpponent = otherPlayer(state.sideToMove());
-        constexpr int kRootExtensionBudget = 12;
-        const bool rootExtensionAllowed = depth < (rootIterationDepth_ + kRootExtensionBudget);
+        const bool rootExtensionAllowed = depth < (rootIterationDepth_ + extensionBudgetForRootIteration());
         const int forcedDefenseExtension = (rootExtensionAllowed
             && state.hasThreatAtLeast(rootOpponent, ThreatType::SimpleFour)) ? 1 : 0;
 
@@ -2003,8 +2290,7 @@ private:
         // extend so the forced continuation isn't lost at the horizon.
         // Cap total extensions along a path so mutual forcing chains
         // can't push past the root iteration depth without bound.
-        constexpr int kExtensionBudget = 12;
-        const bool extensionAllowed = (ply + depth) < (rootIterationDepth_ + kExtensionBudget);
+        const bool extensionAllowed = (ply + depth) < (rootIterationDepth_ + extensionBudgetForRootIteration());
         const int forcedDefenseExtension = (extensionAllowed
             && state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) ? 1 : 0;
 
@@ -2127,6 +2413,9 @@ SearchResult SearchEngine::search(const GameState& state) {
     if (effective.clock.hasGameClock()) {
         TimeGovernor governor;
         TimeGovernorConfig govCfg;  // defaults for now; tunable later
+        if (effective.nextIterBranchingEstimate > 0.0) {
+            govCfg.nextIterBranchingEstimate = effective.nextIterBranchingEstimate;
+        }
         const ThreatAssessment assessment = assessRootThreats(state);
         budget = governor.computeBaselineBudget(effective.clock, govCfg, assessment);
         if (budget) {
@@ -2135,8 +2424,39 @@ SearchResult SearchEngine::search(const GameState& state) {
         }
     }
 
-    SearchRunner runner(effective, sharedTranspositionTable(), std::move(budget));
-    return runner.run(state);
+    SearchRunner runner(effective, sharedTranspositionTable(), budget);
+    SearchResult result = runner.run(state);
+
+    if (effective.compareNoDefFilterSearch
+        && effective.useDefensiveFiltering
+        && result.summary.defFilterApplied
+        && !state.isGameOver()
+        && !state.isSwapDecisionPending())
+    {
+        SearchConfig diagnostic = effective;
+        diagnostic.useDefensiveFiltering = false;
+        diagnostic.useStrictDefenseFiltering = false;
+        diagnostic.disableDefensiveFiltering = true;
+        diagnostic.compareNoDefFilterSearch = false;
+        diagnostic.progressCallback = {};
+
+        TranspositionTable diagnosticTable(18);
+        SearchRunner diagnosticRunner(diagnostic, diagnosticTable, budget);
+        SearchResult diagnosticResult = diagnosticRunner.run(state);
+        result.summary.noDefFilterBestMove = diagnosticResult.bestMove;
+        if (diagnosticResult.bestMove.has_value()) {
+            result.summary.noDefFilterBestMoveDiffers =
+                !result.bestMove.has_value() || *diagnosticResult.bestMove != *result.bestMove;
+            result.summary.noDefFilterBestMoveWasInBeforeDefFilter =
+                containsMove(result.summary.rootMovesBeforeDefFilter, *diagnosticResult.bestMove);
+            result.summary.filteredOutBestMoveFromWiderSearch =
+                result.summary.noDefFilterBestMoveDiffers
+                && result.summary.noDefFilterBestMoveWasInBeforeDefFilter
+                && !containsMove(result.summary.rootMovesAfterDefFilter, *diagnosticResult.bestMove);
+        }
+    }
+
+    return result;
 }
 
 }  // namespace gomoku

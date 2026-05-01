@@ -1,6 +1,8 @@
 #include <algorithm>
+#include <cstdint>
 #include <initializer_list>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "TestAssert.hpp"
@@ -42,6 +44,31 @@ const ThreatStep* findThreat(const std::vector<ThreatStep>& threats, Move move, 
 
 bool containsMove(const std::vector<Move>& moves, Move move) {
     return std::find(moves.begin(), moves.end(), move) != moves.end();
+}
+
+bool hasCombinationNodeForMove(const ThreatSearchResult& result, Move move) {
+    for (const auto& node : result.graph) {
+        if (node.kind != ThreatGraphNodeKind::Combination || node.dependencies.size() != 2U) {
+            continue;
+        }
+
+        bool dependenciesMatch = true;
+        for (const int dependency : node.dependencies) {
+            if (dependency < 0 || dependency >= static_cast<int>(result.graph.size())) {
+                dependenciesMatch = false;
+                break;
+            }
+            const auto& parent = result.graph[static_cast<std::size_t>(dependency)];
+            if (parent.kind != ThreatGraphNodeKind::Threat || parent.move != move) {
+                dependenciesMatch = false;
+                break;
+            }
+        }
+        if (dependenciesMatch) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void assertContinuationSubsetOfRequired(const ThreatStep& threat) {
@@ -93,6 +120,88 @@ void assertBitPatternTableMatchesWindowTable() {
     }
 }
 
+ThreatType maxThreat(ThreatType left, ThreatType right) {
+    return threatSeverity(left) >= threatSeverity(right) ? left : right;
+}
+
+template<int WindowLength>
+ThreatType slowWindowThreat(const std::string& line, int start, int target) {
+    std::vector<gomoku::PatternCell> cells(static_cast<std::size_t>(WindowLength), gomoku::PatternCell::Empty);
+    for (int index = 0; index < WindowLength; ++index) {
+        const int lineIndex = start + index;
+        if (lineIndex == target || line[static_cast<std::size_t>(lineIndex)] == 'X') {
+            cells[static_cast<std::size_t>(index)] = gomoku::PatternCell::Own;
+        } else if (line[static_cast<std::size_t>(lineIndex)] == 'O') {
+            cells[static_cast<std::size_t>(index)] = gomoku::PatternCell::Opponent;
+        }
+    }
+    const bool ownBefore = start > 0 && line[static_cast<std::size_t>(start - 1)] == 'X';
+    const bool ownAfter = start + WindowLength < static_cast<int>(line.size())
+        && line[static_cast<std::size_t>(start + WindowLength)] == 'X';
+    return gomoku::classifyPatternWindow(cells, target - start, false, ownBefore, ownAfter);
+}
+
+template<int WindowLength>
+ThreatType fastWindowThreat(const std::string& line, int start, int target) {
+    std::uint16_t ownBits = 0;
+    std::uint16_t opponentBits = 0;
+    for (int index = 0; index < static_cast<int>(line.size()); ++index) {
+        if (line[static_cast<std::size_t>(index)] == 'X') {
+            ownBits = static_cast<std::uint16_t>(ownBits | (1U << index));
+        } else if (line[static_cast<std::size_t>(index)] == 'O') {
+            opponentBits = static_cast<std::uint16_t>(opponentBits | (1U << index));
+        }
+    }
+
+    const std::uint16_t ownBitsWithTarget = static_cast<std::uint16_t>(ownBits | (1U << target));
+    const bool ownBefore = start > 0 && (ownBits & static_cast<std::uint16_t>(1U << (start - 1))) != 0U;
+    const bool ownAfter = start + WindowLength < static_cast<int>(line.size())
+        && (ownBits & static_cast<std::uint16_t>(1U << (start + WindowLength))) != 0U;
+    return gomoku::classifyPatternBits<WindowLength>(
+        ownBitsWithTarget,
+        opponentBits,
+        start,
+        target - start,
+        ownBefore,
+        ownAfter,
+        gomoku::patternTableValues(WindowLength, false));
+}
+
+void assertLongLineSubdivisionMatchesSlowClassifier() {
+    const std::string base = ".XX..X.O..XX.O..";
+    for (int length = 8; length <= 16; ++length) {
+        const std::string line = base.substr(0, static_cast<std::size_t>(length));
+        for (int target = 0; target < length; ++target) {
+            if (line[static_cast<std::size_t>(target)] == 'O') {
+                continue;
+            }
+
+            ThreatType slow = ThreatType::None;
+            ThreatType fast = ThreatType::None;
+            for (int windowLength = 5; windowLength <= 7; ++windowLength) {
+                for (int targetOffset = 0; targetOffset < windowLength; ++targetOffset) {
+                    const int start = target - targetOffset;
+                    if (start < 0 || start + windowLength > length) {
+                        continue;
+                    }
+
+                    if (windowLength == 5) {
+                        slow = maxThreat(slow, slowWindowThreat<5>(line, start, target));
+                        fast = maxThreat(fast, fastWindowThreat<5>(line, start, target));
+                    } else if (windowLength == 6) {
+                        slow = maxThreat(slow, slowWindowThreat<6>(line, start, target));
+                        fast = maxThreat(fast, fastWindowThreat<6>(line, start, target));
+                    } else {
+                        slow = maxThreat(slow, slowWindowThreat<7>(line, start, target));
+                        fast = maxThreat(fast, fastWindowThreat<7>(line, start, target));
+                    }
+                }
+            }
+            assert(slow == fast);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -102,6 +211,7 @@ int main() {
         assertBitPatternTableMatchesWindowTable<5>();
         assertBitPatternTableMatchesWindowTable<6>();
         assertBitPatternTableMatchesWindowTable<7>();
+        assertLongLineSubdivisionMatchesSlowClassifier();
     }
 
     {
@@ -146,6 +256,14 @@ int main() {
         assert(info.lineThreats[1] == ThreatType::BrokenThree);
         assert(info.best == ThreatType::BrokenThree);
         assert(info.second == ThreatType::BrokenThree);
+
+        game.setSideToMoveForAnalysis(Player::Black);
+        ThreatSequenceConfig config;
+        config.minimumThreat = ThreatType::BrokenThree;
+        config.maxDepth = 1;
+        ThreatSequenceSearcher searcher(config);
+        const ThreatSearchResult result = searcher.searchWinningSequence(game, Player::Black);
+        assert(hasCombinationNodeForMove(result, {7, 3}));
     }
 
     {
@@ -199,13 +317,38 @@ int main() {
         assert(result.graph.size() >= 2U);
         bool sawOpenThree = false;
         for (const auto& node : result.graph) {
-            assert(node.kind == ThreatGraphNodeKind::Threat);
+            if (node.kind == ThreatGraphNodeKind::Combination) {
+                assert(node.dependencies.size() >= 2U);
+                continue;
+            }
             assert(threatSeverity(node.type) >= threatSeverity(ThreatType::BrokenThree));
             sawOpenThree = sawOpenThree || node.type == ThreatType::OpenThree;
             assert(!node.defenseMoves.empty());
             assert(!node.requiredEmpty.empty());
         }
         assert(sawOpenThree);
+    }
+
+    {
+        // Black has a plausible forcing attack, but White already has an
+        // immediate winning counter. Threat-space search must reject the
+        // black line and surface the counter as a refutation.
+        GameState game = makeGame({
+            {7, 7}, {0, 0},
+            {7, 8}, {0, 1},
+            {10, 10}, {0, 2},
+            {10, 11}, {0, 3},
+        });
+        assert(game.sideToMove() == Player::Black);
+
+        ThreatSequenceConfig config;
+        config.maxDepth = 3;
+        config.refutationNodeBudget = 2000;
+        ThreatSequenceSearcher searcher(config);
+        const ThreatSearchResult result = searcher.searchWinningSequence(game, Player::Black);
+
+        assert(!result.foundWin);
+        assert(containsMove(result.refutations, {0, 4}));
     }
 
     {

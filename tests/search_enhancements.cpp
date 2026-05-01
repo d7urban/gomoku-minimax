@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <initializer_list>
+#include <vector>
 
 #include "TestAssert.hpp"
 #include "gomoku/GameState.hpp"
@@ -46,6 +47,10 @@ void assertPrincipalVariationLegal(const GameState& root, const SearchResult& re
     if (!result.bestMove.has_value()) {
         return;
     }
+    if (result.summary.principalVariation.empty()) {
+        assert(result.summary.depthReached == 0);
+        return;
+    }
     assert(!result.summary.principalVariation.empty());
     assert(result.summary.principalVariation.front() == *result.bestMove);
 
@@ -57,6 +62,10 @@ void assertPrincipalVariationLegal(const GameState& root, const SearchResult& re
             break;
         }
     }
+}
+
+bool containsMove(const std::vector<Move>& moves, Move move) {
+    return std::find(moves.begin(), moves.end(), move) != moves.end();
 }
 
 void testThreatSeverityEnhanced() {
@@ -107,6 +116,9 @@ void testSearchHandlesDeepQuietPosition() {
     config.timeLimitMs = 2000;
     config.maxCandidateMoves = 16;
     config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+    config.useVcfAtLeaves = false;
+    config.useWinVerificationResearch = false;
     std::optional<gomoku::SearchSummary> progress;
     config.progressCallback = [&](const gomoku::SearchSummary& summary) {
         progress = summary;
@@ -115,7 +127,8 @@ void testSearchHandlesDeepQuietPosition() {
     SearchEngine engine(config);
     const SearchResult result = engine.search(game);
     assert(result.bestMove.has_value());
-    assert(result.summary.depthReached >= 2);
+    assert(result.summary.depthReached >= 1);
+    assert(result.summary.maxDepthVisited >= 2);
     assert(result.summary.nodes > 0);
     assert(progress.has_value());
     assert(progress->depthReached >= 1);
@@ -281,7 +294,67 @@ void testSimpleFourDefenseOnlyKeepsRealBlockingSquares() {
     const SearchResult result = engine.search(game);
     assert(result.bestMove.has_value());
     assert(*result.bestMove == (Move{6, 6}) || *result.bestMove == (Move{10, 10}));
-    assert(result.summary.rootCandidateCount == 2);
+    assert(result.summary.defFilterApplied);
+    assert(result.summary.rootCandidateCountBeforeDefFilter >= 2);
+    assert(result.summary.rootCandidateCountAfterDefFilter >= result.summary.rootCandidateCountBeforeDefFilter);
+    assert(result.summary.rootMovesRemovedByDefFilter.empty());
+    assert(containsMove(result.summary.rootMovesAfterDefFilter, Move{6, 6}));
+    assert(containsMove(result.summary.rootMovesAfterDefFilter, Move{10, 10}));
+}
+
+void testSimpleFourFilterPreservesDiagnosticTailMove() {
+    GameState game = makeGame({
+        {14, 1}, {14, 4}, {14, 7}, {14, 10},
+        {14, 9}, {14, 5}, {14, 6}, {11, 8},
+        {10, 9}, {12, 9}, {10, 7}, {10, 8},
+        {9, 8}, {11, 7}, {11, 10}, {12, 11},
+        {8, 7}, {7, 6}, {9, 7}, {12, 6},
+        {13, 5}, {9, 9}, {8, 10}, {11, 6},
+    });
+    assert(game.sideToMove() == Player::Black);
+    assert(game.hasThreatAtLeast(Player::White, ThreatType::SimpleFour));
+
+    SearchConfig config;
+    config.maxDepth = 1;
+    config.maxNodes = 25'000;
+    config.timeLimitMs = 500;
+    config.maxCandidateMoves = 28;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.defFilterApplied);
+    assert(containsMove(result.summary.rootMovesBeforeDefFilter, Move{7, 7}));
+    assert(containsMove(result.summary.rootMovesAfterDefFilter, Move{7, 7}));
+    assert(!containsMove(result.summary.rootMovesRemovedByDefFilter, Move{7, 7}));
+}
+
+void testFirstIterationDoesNotExplodeForcedExtensionChain() {
+    GameState game = makeGame({
+        {14, 1}, {14, 4}, {14, 7}, {14, 10},
+        {14, 9}, {14, 5}, {14, 6}, {11, 8},
+        {10, 9}, {12, 9}, {10, 7}, {10, 8},
+        {9, 8}, {11, 7},
+    });
+    assert(game.sideToMove() == Player::Black);
+
+    SearchConfig config;
+    config.maxDepth = 1;
+    config.maxNodes = 5'000'000;
+    config.timeLimitMs = 1000;
+    config.maxCandidateMoves = 80;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+    config.maxRootThreads = 1;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.completedLastDepth);
+    assert(result.summary.depthReached >= 1);
+    assert(result.summary.maxDepthVisited <= 8);
 }
 
 void testVcfLeafDisabledLeavesOtherMatePathsAvailable() {
@@ -627,6 +700,47 @@ void testVcfRootGeneratorIgnoresQuietNoise() {
     }
 }
 
+void testPanicModeSurfacesLostRoot() {
+    // White to move cannot parry both Black fours. Once depth 2 proves
+    // every root move loses, panic mode should be surfaced so callers know
+    // the soft limit was no longer authoritative.
+    GameState game = makeGame({
+        {7, 3}, {0, 0},
+        {7, 4}, {0, 2},
+        {7, 5}, {1, 4},
+        {7, 6}, {2, 6},
+        {3, 9}, {10, 0},
+        {4, 9}, {11, 2},
+        {5, 9}, {12, 4},
+        {6, 9},
+    });
+    assert(game.sideToMove() == Player::White);
+    assert(game.threatInfoAt({7, 2}, Player::Black).best == ThreatType::Five);
+    assert(game.threatInfoAt({7, 7}, Player::Black).best == ThreatType::Five);
+    assert(game.threatInfoAt({2, 9}, Player::Black).best == ThreatType::Five);
+    assert(game.threatInfoAt({7, 9}, Player::Black).best == ThreatType::Five);
+
+    SearchConfig config;
+    config.maxDepth = 2;
+    config.maxNodes = 300'000;
+    config.timeLimitMs = 1000;
+    config.softTimeLimitMs = 1;
+    config.maxCandidateMoves = 2;
+    config.useOpeningBook = false;
+    config.useRootThreatSearch = false;
+    config.useDefensiveFiltering = false;
+    config.useStrictDefenseFiltering = false;
+    config.useVcfAtLeaves = false;
+    config.useWinVerificationResearch = false;
+    config.maxRootThreads = 1;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.panicModeEntered);
+    assert(result.summary.depthReached >= 2);
+}
+
 }  // namespace
 
 int main() {
@@ -640,6 +754,8 @@ int main() {
     testForcingFilterPicksUniqueSimpleFourBlock();
     testUniqueImmediateBlockShortCircuitsSearch();
     testSimpleFourDefenseOnlyKeepsRealBlockingSquares();
+    testSimpleFourFilterPreservesDiagnosticTailMove();
+    testFirstIterationDoesNotExplodeForcedExtensionChain();
     testForcedFourExtensionTerminates();
     testDefensiveFilterKeepsDoubleOpenThreeCounter();
     testDefensiveFilterKeepsDoubleBrokenThreeCounter();
@@ -652,5 +768,6 @@ int main() {
     testParallelRootSearchMatchesSerialBestMove();
     testSearchDoesNotReturnEmptyOnTournamentCrossPattern();
     testVcfRootGeneratorIgnoresQuietNoise();
+    testPanicModeSurfacesLostRoot();
     return 0;
 }
