@@ -27,6 +27,7 @@ struct SearchConfig {
     bool useRootThreatSearch {true};
     bool useOpeningBook {false};
     bool useVcfAtLeaves {true};
+    bool useQuiescenceSearch {true};
     bool useWinVerificationResearch {true};
     bool disableOpeningBook {false};
     bool disableNullMovePruning {false};

@@ -23,10 +23,11 @@ Threat-aware C++20 Gomoku engine with an SFML GUI, CLI tools, opening book suppo
   - threat-sequence defense filtering with counter-threat refutations
   - null-move pruning guarded by bounded opponent threat search
   - selective VCF probing with forcing-only candidates
+  - bounded quiescence search at noisy tactical leaves
   - cautious win-verification re-search for mate-like tactical scores
   - tactical threat-sequence search with all-defenses continuation support
   - opening book
-  - iterative deepening with dynamic time governor
+  - iterative deepening with live-clock time governor
   - panic mode that can ignore soft time limits in losing tactical positions
   - bounded parallel root search
   - live search progress reporting in the GUI
@@ -79,6 +80,9 @@ The GUI uses AI-only clock presets instead of a fixed per-move limit:
 - `blitz`: `5:00 / 40`
 - `fast`: `15:00 / 60`
 - `slow`: `60:00 / 60`
+
+These presets are allocated by the time governor from the live game clock;
+they are not converted into a fixed per-move ceiling.
 
 The search panel shows both:
 - `Depth`: deepest ply actually visited, including forcing extensions
@@ -158,7 +162,22 @@ Gomocup adapter:
 
 Use `--threads 0` for automatic root parallelism, `--threads 1` to force
 single-threaded search, and `--no-strict-defense` to disable the hard
-threat-sequence defense filter for triage.
+threat-sequence defense filter for triage. Tactical quiescence search is
+enabled by default.
+
+When the Gomocup adapter receives live `INFO time_left` and
+`INFO moves_to_reset` updates, the engine uses the time governor to derive
+per-move soft and hard budgets. This is the path used by the time-control
+round-robin harness:
+
+```bash
+python3 ../gomoku-harness/harness/time_control_round_robin.py \
+  --engine-cmd "/home/urban/Code/C++/gomoku-minimax/build/gomoku_gomocup --threads 16" \
+  --presets "blitz,fast" \
+  --games-per-pair 20 \
+  --openings-file "../gomoku-harness/results/crazy_sensei_openings_balanced_rr_20260424.json" \
+  --label "semanticfix_blitz_vs_fast_Qfix-TMfix-20g"
+```
 
 Tournament runner:
 
@@ -207,7 +226,8 @@ Current branch highlights:
 - GUI play with human or AI seats
 - opening-book play in the main engine
 - threat-aware search with strict tactical defense filtering, VCF support, and win verification
-- AI-only repeating time controls in the GUI
+- bounded tactical quiescence search for noisy leaf positions
+- AI-only repeating time controls in the GUI and Gomocup live-clock time-governor support
 - Gomocup root parallelism and richer search logging
 - generated opening-book construction via `gomoku_book_build`
 - save/load support for GUI games

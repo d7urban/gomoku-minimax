@@ -31,6 +31,8 @@ constexpr int kDefaultAspirationWindow = 80;
 constexpr int kMaxSearchPly = 64;
 constexpr int kLmrTableSize = 64;
 constexpr int kPanicLosingThreshold = kMateThreshold;
+constexpr int kQuiescenceMaxPly = 6;
+constexpr std::size_t kQuiescenceMaxMoves = 8;
 
 // Precomputed log/log LMR reduction table. PV nodes get one less reduction
 // than non-PV so the principal line is explored at a higher depth.
@@ -235,6 +237,7 @@ struct RootWorkerResult {
     std::uint64_t ttHits {0};
     std::uint64_t vcfNodes {0};
     std::uint64_t winVerificationNodes {0};
+    std::uint64_t quiescenceNodes {0};
     int vcfHits {0};
     int winVerifications {0};
     int maxPlyVisited {0};
@@ -801,6 +804,7 @@ private:
     std::uint64_t ttHits_ {0};
     std::uint64_t vcfProbeNodes_ {0};
     std::uint64_t winVerificationNodes_ {0};
+    std::uint64_t quiescenceNodes_ {0};
     int vcfHits_ {0};
     int winVerificationCount_ {0};
     int rootIterationDepth_ {0};
@@ -1524,6 +1528,157 @@ private:
         return -kMateScore + ply;
     }
 
+    bool hasNoisyTacticalThreat(const GameState& state) const {
+        if (state.isGameOver() || state.isSwapDecisionPending()) {
+            return false;
+        }
+        const Player side = state.sideToMove();
+        const Player opponent = otherPlayer(side);
+        return state.hasThreatAtLeast(side, ThreatType::OpenThree)
+            || state.hasThreatAtLeast(opponent, ThreatType::OpenThree);
+    }
+
+    std::uint64_t quiescenceNodeLimit() const {
+        std::uint64_t limit = 4'000;
+        if (hardTimeLimitMs() > 0) {
+            limit += static_cast<std::uint64_t>(hardTimeLimitMs()) * 8U;
+        }
+        if (config_.maxNodes > 0) {
+            limit = std::min<std::uint64_t>(limit,
+                std::max<std::uint64_t>(1'000, config_.maxNodes / 4));
+        }
+        return std::clamp<std::uint64_t>(limit, 1'000, 80'000);
+    }
+
+    static int quiescenceOrderingScore(const CandidateMove& candidate, const MoveThreatInfo& blockInfo) {
+        int score = candidate.score;
+        if (candidate.threatInfo.best == ThreatType::Five) {
+            score += 20'000'000;
+        }
+        if (blockInfo.best == ThreatType::Five) {
+            score += 12'000'000;
+        }
+        if (threatSeverity(candidate.threatInfo.best) >= threatSeverity(ThreatType::OpenFour)) {
+            score += 3'000'000;
+        }
+        if (threatSeverity(blockInfo.best) >= threatSeverity(ThreatType::OpenFour)) {
+            score += 2'500'000;
+        }
+        if (threatSeverity(candidate.threatInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+            score += 1'000'000;
+        }
+        if (threatSeverity(blockInfo.best) >= threatSeverity(ThreatType::SimpleFour)) {
+            score += 900'000;
+        }
+        if (threatSeverity(candidate.threatInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
+            score += 250'000;
+        }
+        if (threatSeverity(blockInfo.best) >= threatSeverity(ThreatType::OpenThree)) {
+            score += 225'000;
+        }
+        return score;
+    }
+
+    std::vector<CandidateMove> generateQuiescenceCandidates(const GameState& state, Player player) const {
+        const Player opponent = otherPlayer(player);
+        const bool mustRespond = state.hasThreatAtLeast(opponent, ThreatType::OpenThree);
+        const bool opponentFourOnBoard = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour);
+        std::vector<CandidateMove> candidates;
+        const std::vector<Move> moves = collectNeighborhoodMoves(state, 2);
+        candidates.reserve(moves.size());
+
+        for (const Move& move : moves) {
+            const MoveThreatInfo attackInfo = state.threatInfoAt(move, player);
+            const MoveThreatInfo blockInfo = state.threatInfoAt(move, opponent);
+            const bool createsTactical =
+                threatSeverity(attackInfo.best) >= threatSeverity(ThreatType::OpenThree);
+            const bool blocksTactical =
+                threatSeverity(blockInfo.best) >= threatSeverity(ThreatType::OpenThree);
+            const bool counterThreat = isDefensiveCounterMove(attackInfo, opponentFourOnBoard);
+
+            if (mustRespond) {
+                if (!blocksTactical && !counterThreat) {
+                    continue;
+                }
+            } else if (!createsTactical && !blocksTactical) {
+                continue;
+            }
+
+            candidates.push_back(buildCandidateMove(state, move, player));
+        }
+
+        std::sort(candidates.begin(), candidates.end(), [&](const CandidateMove& left, const CandidateMove& right) {
+            const MoveThreatInfo leftBlock = state.threatInfoAt(left.move, opponent);
+            const MoveThreatInfo rightBlock = state.threatInfoAt(right.move, opponent);
+            return quiescenceOrderingScore(left, leftBlock) > quiescenceOrderingScore(right, rightBlock);
+        });
+
+        const std::size_t maxMoves = mustRespond ? std::max<std::size_t>(kQuiescenceMaxMoves, 12) : kQuiescenceMaxMoves;
+        if (candidates.size() > maxMoves) {
+            candidates.resize(maxMoves);
+        }
+        return candidates;
+    }
+
+    int quiescence(GameState& state, int alpha, int beta, int ply, int quiescencePly) {
+        maxPlyVisited_ = std::max(maxPlyVisited_, ply);
+        if (quiescencePly > 0) {
+            ++nodes_;
+        }
+        ++quiescenceNodes_;
+        if (shouldStop()) {
+            return 0;
+        }
+        if (state.isGameOver()) {
+            return terminalScore(state, ply);
+        }
+
+        const int standPat = StaticEvaluator::evaluate(state, state.sideToMove());
+        if (!hasNoisyTacticalThreat(state)
+            || ply >= kMaxSearchPly
+            || quiescencePly >= kQuiescenceMaxPly
+            || quiescenceNodes_ >= quiescenceNodeLimit()) {
+            return standPat;
+        }
+
+        const Player player = state.sideToMove();
+        const bool mustRespond = state.hasThreatAtLeast(otherPlayer(player), ThreatType::OpenThree);
+        int bestScore = standPat;
+        if (!mustRespond) {
+            if (standPat >= beta) {
+                return standPat;
+            }
+            alpha = std::max(alpha, standPat);
+        } else {
+            bestScore = -kInfinity;
+        }
+
+        const std::vector<CandidateMove> candidates = generateQuiescenceCandidates(state, player);
+        if (candidates.empty()) {
+            return standPat;
+        }
+
+        for (const CandidateMove& candidate : candidates) {
+            if (!state.applyMove(candidate.move)) {
+                continue;
+            }
+            const int score = -quiescence(state, -beta, -alpha, ply + 1, quiescencePly + 1);
+            state.undo();
+            if (!completedDepth_) {
+                return 0;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+            }
+            alpha = std::max(alpha, score);
+            if (alpha >= beta) {
+                break;
+            }
+        }
+
+        return bestScore == -kInfinity ? standPat : bestScore;
+    }
+
     int historyIndex(Move move) const {
         return move.row * 16 + move.col;
     }
@@ -1694,6 +1849,7 @@ private:
         result.ttHits = worker.ttHits_;
         result.vcfNodes = worker.vcfProbeNodes_;
         result.winVerificationNodes = worker.winVerificationNodes_;
+        result.quiescenceNodes = worker.quiescenceNodes_;
         result.vcfHits = worker.vcfHits_;
         result.winVerifications = worker.winVerificationCount_;
         result.maxPlyVisited = worker.maxPlyVisited_;
@@ -1707,6 +1863,7 @@ private:
         winVerificationNodes_ += worker.winVerificationNodes;
         vcfHits_ += worker.vcfHits;
         winVerificationCount_ += worker.winVerifications;
+        quiescenceNodes_ += worker.quiescenceNodes;
         maxPlyVisited_ = std::max(maxPlyVisited_, worker.maxPlyVisited);
     }
 
@@ -2195,6 +2352,9 @@ private:
                     }
                     vcfProbeNodes_ += probe.nodes;
                 }
+            }
+            if (config_.useQuiescenceSearch && hasNoisyTacticalThreat(state)) {
+                return quiescence(state, alpha, beta, ply, 0);
             }
             return StaticEvaluator::evaluate(state, state.sideToMove());
         }

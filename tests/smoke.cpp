@@ -414,6 +414,33 @@ int main() {
     }
 
     {
+        MatchConfig blitzConfig;
+        blitzConfig.ruleset = Ruleset::Freestyle15;
+        blitzConfig.openerController = ControllerKind::ExpertAI;
+        blitzConfig.chooserController = ControllerKind::Human;
+        blitzConfig.aiTimeControlPreset = AiTimeControlPreset::Blitz;
+
+        Match blitz(blitzConfig);
+        blitz.stepAi();
+        assert(blitz.lastSearchSummary().has_value());
+        const int blitzHardLimit = blitz.lastSearchSummary()->hardLimitMs;
+        assert(blitzHardLimit > 0);
+        assert(blitzHardLimit < 60'000);
+        const std::uint64_t blitzMaxNodes = blitz.lastSearchSummary()->maxNodes;
+        assert(blitzMaxNodes < 90'000'000ULL);
+
+        MatchConfig fastConfig = blitzConfig;
+        fastConfig.aiTimeControlPreset = AiTimeControlPreset::Fast;
+        Match fast(fastConfig);
+        fast.stepAi();
+        assert(fast.lastSearchSummary().has_value());
+        const int fastHardLimit = fast.lastSearchSummary()->hardLimitMs;
+        assert(fastHardLimit > blitzHardLimit);
+        assert(fastHardLimit < 60'000);
+        assert(fast.lastSearchSummary()->maxNodes > blitzMaxNodes);
+    }
+
+    {
         Match match({Ruleset::Freestyle15, ControllerKind::TacticalAI, ControllerKind::Human});
         assert(match.applyMove({7, 7}));
         assert(match.applyMove({0, 0}));

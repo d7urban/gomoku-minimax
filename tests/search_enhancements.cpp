@@ -197,6 +197,33 @@ void testShallowSearchFindsOpenFourMate() {
     assert(result.summary.score >= 1'000'000);
 }
 
+void testQuiescenceExtendsNoisyLeafWithoutVcf() {
+    GameState game = makeGame({
+        {10, 5}, {9, 6},
+        {9, 4}, {8, 3},
+        {10, 4},
+    });
+    assert(game.sideToMove() == Player::White);
+
+    SearchConfig config;
+    config.maxDepth = 3;
+    config.maxNodes = 0;
+    config.timeLimitMs = 0;
+    config.maxCandidateMoves = 6;
+    config.useRootThreatSearch = false;
+    config.useOpeningBook = false;
+    config.useVcfAtLeaves = false;
+    config.useWinVerificationResearch = false;
+    config.useNullMovePruning = false;
+    config.maxRootThreads = 1;
+
+    SearchEngine engine(config);
+    const SearchResult result = engine.search(game);
+    assert(result.bestMove.has_value());
+    assert(result.summary.depthReached == 3);
+    assert(result.summary.maxDepthVisited > result.summary.depthReached);
+}
+
 void testWinningMateGetsCautiousVerification() {
     GameState game = makeGame({
         {7, 5}, {0, 0},
@@ -347,6 +374,7 @@ void testFirstIterationDoesNotExplodeForcedExtensionChain() {
     config.maxCandidateMoves = 80;
     config.useOpeningBook = false;
     config.useRootThreatSearch = false;
+    config.useQuiescenceSearch = false;
     config.maxRootThreads = 1;
 
     SearchEngine engine(config);
@@ -748,6 +776,7 @@ int main() {
     testSearchHandlesDeepQuietPosition();
     testSearchFindsOpenFourResponse();
     testShallowSearchFindsOpenFourMate();
+    testQuiescenceExtendsNoisyLeafWithoutVcf();
     testWinningMateGetsCautiousVerification();
     testVcfLeafDisabledLeavesOtherMatePathsAvailable();
     testFirstIterationSkipsLeafVcfProbe();

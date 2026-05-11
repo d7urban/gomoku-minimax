@@ -3,15 +3,20 @@
 #include <algorithm>
 #include <chrono>
 
+#include "gomoku/Threats.hpp"
+#include "gomoku/TimeGovernor.hpp"
+
 namespace gomoku {
 
 namespace {
 
 using SteadyClock = std::chrono::steady_clock;
 
-void applySearchBudgetHeuristics(SearchConfig& config, int budgetMs) {
+void applySearchBudgetHeuristics(SearchConfig& config, int budgetMs, int softBudgetMs = 0) {
     config.timeLimitMs = std::max(1, budgetMs);
-    config.softTimeLimitMs = std::max(1, config.timeLimitMs * 3 / 4);
+    config.softTimeLimitMs = softBudgetMs > 0
+        ? std::clamp(softBudgetMs, 1, config.timeLimitMs)
+        : std::max(1, config.timeLimitMs * 3 / 4);
 
     if (config.timeLimitMs >= 10000) {
         config.maxDepth = 64;
@@ -455,18 +460,29 @@ SearchConfig Match::makeSearchConfig() const {
     config.disableDefensiveFiltering = !config_.defensiveFilteringEnabled;
     config.compareNoDefFilterSearch = config_.compareNoDefFilterSearch;
     config.nextIterBranchingEstimate = config_.nextIterBranchingEstimate;
-    int heuristicBudgetMs = std::max(1, config_.aiMoveTimeMs);
     if (const auto effectiveClock = effectiveClockStateForTurn()) {
         config.clock = *effectiveClock;
-        const std::int64_t timeSignal = effectiveClock->timeoutTurnMs > 0
-            ? effectiveClock->timeoutTurnMs
-            : effectiveClock->timeLeftMs;
-        if (timeSignal > 0) {
-            heuristicBudgetMs = std::max(heuristicBudgetMs,
-                static_cast<int>(std::min<std::int64_t>(timeSignal, 60'000)));
+        config.clock.moveNumber = static_cast<std::uint32_t>(state_.moveCount());
+
+        if (config.clock.hasGameClock()) {
+            TimeGovernorConfig governorConfig;
+            if (config.nextIterBranchingEstimate > 0.0) {
+                governorConfig.nextIterBranchingEstimate = config.nextIterBranchingEstimate;
+            }
+
+            TimeGovernor governor;
+            const std::optional<MoveBudget> budget =
+                governor.computeBaselineBudget(config.clock, governorConfig, assessRootThreats(state_));
+            if (budget.has_value()) {
+                applySearchBudgetHeuristics(config,
+                    static_cast<int>(budget->hardCapMs),
+                    static_cast<int>(budget->targetMs));
+                return config;
+            }
         }
     }
-    applySearchBudgetHeuristics(config, heuristicBudgetMs);
+
+    applySearchBudgetHeuristics(config, std::max(1, config_.aiMoveTimeMs));
     config.clock.moveNumber = static_cast<std::uint32_t>(state_.moveCount());
     return config;
 }
