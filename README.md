@@ -18,17 +18,25 @@ C++20 Gomoku with a playable SFML GUI, a headless CLI, and a staged engine that 
   - `gomoku_ui` SFML desktop app
   - `gomoku_cli` text interface
 - Engine features:
-  - threat-aware static evaluation
-  - alpha-beta / PVS search
+  - tactically tiered static evaluation
+  - iterative-deepening alpha-beta / PVS search
   - transposition table
   - tactical threat-sequence search
   - opening book
-  - proof-assisted tactical analysis
+  - proof-assisted tactical analysis with complete defender verification
 - Tooling:
   - self-play runner
   - search benchmark runner
   - proof benchmark runner
   - opening-book dump tool
+
+## Search Correctness
+
+The static evaluator treats tactical classes as a strict hierarchy. Immediate Five, OpenFour, SimpleFour, and OpenThree opportunities dominate quiet positional terms. It evaluates the four strongest candidate threats with diminishing weight and uses the aggregate low-grade board heatmap only as a small tie-breaker.
+
+Threat queries describe moves that can create a pattern; they are not treated as threats already placed on the board. Optional defensive filtering is limited to concrete one-ply winning squares. Null-move pruning, defensive filtering, razoring, and reverse futility pruning are disabled by default while their assumptions are being validated.
+
+Bounded threat searches provide move-ordering hints rather than unverified mate scores. Proof analysis can report `ProvenWin` only after every legal defender reply has been searched. Expert search uses a fixed high depth target and lets the time and node budgets determine the last completed iterative-deepening depth.
 
 ## Build
 
@@ -132,9 +140,15 @@ Opening book dump:
 Build and run the regression targets:
 
 ```bash
-cmake --build build --target gomoku_smoke gomoku_tactical_regressions
-ctest --test-dir build --output-on-failure -R "gomoku_smoke|gomoku_tactical_regressions"
+cmake --build build --target \
+  gomoku_smoke \
+  gomoku_tactical_regressions \
+  gomoku_search_enhancements \
+  gomoku_seeded_regressions
+ctest --test-dir build --output-on-failure
 ```
+
+The seeded search regressions use deterministic node budgets rather than wall-clock limits, including short-versus-long budget checks for forcing replies.
 
 ## Project Layout
 

@@ -123,7 +123,7 @@ const MoveThreatInfo& GameState::threatInfoAt(Move move, Player player) const {
     return kEmptyInfo;
 }
 
-bool GameState::hasThreatAtLeast(Player player, ThreatType threshold) const {
+bool GameState::canCreateThreatAtLeast(Player player, ThreatType threshold) const {
     const std::vector<MoveThreatInfo>* threatInfo = nullptr;
     if (player == Player::Black) {
         threatInfo = &threatInfoBlack_;
@@ -144,6 +144,27 @@ bool GameState::hasThreatAtLeast(Player player, ThreatType threshold) const {
     }
 
     return false;
+}
+
+std::vector<Move> GameState::movesCreatingThreatAtLeast(Player player, ThreatType threshold) const {
+    const std::vector<MoveThreatInfo>* threatInfo = nullptr;
+    if (player == Player::Black) {
+        threatInfo = &threatInfoBlack_;
+    } else if (player == Player::White) {
+        threatInfo = &threatInfoWhite_;
+    } else {
+        return {};
+    }
+
+    std::vector<Move> moves;
+    const int minimumSeverity = threatSeverity(threshold);
+    for (std::size_t index = 0; index < board_.size(); ++index) {
+        if (board_[index] == Player::None
+            && threatSeverity((*threatInfo)[index].best) >= minimumSeverity) {
+            moves.push_back(moveFromIndex(index));
+        }
+    }
+    return moves;
 }
 
 int GameState::totalPotential(Player player) const {

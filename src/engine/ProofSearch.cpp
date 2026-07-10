@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iterator>
 #include <limits>
 
 namespace gomoku {
@@ -41,6 +42,11 @@ struct NodeResult {
     int maxDepthReached {0};
 };
 
+struct CandidateSet {
+    std::vector<Move> moves;
+    bool complete {false};
+};
+
 class ProofSearchRunner {
 public:
     explicit ProofSearchRunner(ProofAnalysisConfig config)
@@ -66,31 +72,23 @@ public:
         ThreatSequenceSearcher threatSearcher(threatConfig);
         ThreatSearchResult threatResult = threatSearcher.searchWinningSequence(state, attacker);
         if (threatResult.foundWin && !threatResult.sequence.empty()) {
-            result.outcome = ProofOutcome::ProvenWin;
-            result.bestMove = threatResult.sequence.front().move;
-            result.nodes = threatResult.nodes;
-            result.maxDepthReached = static_cast<int>(threatResult.sequence.size());
-            result.rootProofNumber = 0;
-            result.rootDisproofNumber = kProofInfinity;
-            result.usedThreatShortcut = true;
             result.threatSequence = threatResult;
-            for (const ThreatStep& step : threatResult.sequence) {
-                result.principalVariation.push_back(step.move);
-            }
-            ProofMoveSummary moveSummary;
-            moveSummary.move = threatResult.sequence.front().move;
-            moveSummary.threatType = threatResult.sequence.front().type;
-            moveSummary.outcome = ProofOutcome::ProvenWin;
-            moveSummary.proofNumber = 0;
-            moveSummary.disproofNumber = kProofInfinity;
-            result.rootMoves.push_back(moveSummary);
-            result.elapsedMs = elapsedMs();
-            return result;
         }
 
-        const std::vector<Move> rootMoves = generateCandidates(state, attacker, true);
+        CandidateSet rootCandidates = generateCandidates(state, attacker, true);
+        if (result.threatSequence.has_value()) {
+            const Move threatMove = result.threatSequence->sequence.front().move;
+            const auto found = std::find(rootCandidates.moves.begin(), rootCandidates.moves.end(), threatMove);
+            if (found == rootCandidates.moves.end()) {
+                rootCandidates.moves.insert(rootCandidates.moves.begin(), threatMove);
+            } else {
+                std::rotate(rootCandidates.moves.begin(), found, std::next(found));
+            }
+        }
+        const std::vector<Move>& rootMoves = rootCandidates.moves;
         if (rootMoves.empty()) {
             result.outcome = state.isGameOver() && !isWinningResultFor(state.result(), attacker) ? ProofOutcome::ProvenLoss : ProofOutcome::Unknown;
+            result.nodes = nodes_ + threatResult.nodes;
             result.elapsedMs = elapsedMs();
             return result;
         }
@@ -152,7 +150,7 @@ public:
         }
 
         if (result.outcome != ProofOutcome::ProvenWin) {
-            if (allLosses && searchedAnyChild && searchedAllChildren) {
+            if (allLosses && searchedAnyChild && searchedAllChildren && rootCandidates.complete) {
                 result.outcome = ProofOutcome::ProvenLoss;
                 result.rootProofNumber = kProofInfinity;
                 result.rootDisproofNumber = 0;
@@ -216,8 +214,22 @@ private:
         return config_.timeLimitMs > 0 && elapsedMs() >= config_.timeLimitMs;
     }
 
-    std::vector<Move> generateCandidates(const GameState& state, Player player, bool preferForcing) {
-        std::vector<Move> moves;
+    CandidateSet generateCandidates(const GameState& state, Player player, bool preferForcing) {
+        CandidateSet candidates;
+        std::vector<Move>& moves = candidates.moves;
+        const std::vector<Move> legalMoves = state.legalMoves();
+
+        if (!preferForcing) {
+            for (const CandidateMove& candidate :
+                StaticEvaluator::generateCandidateMoves(state, player, legalMoves.size())) {
+                addUniqueMove(moves, candidate.move);
+            }
+            for (const Move& move : legalMoves) {
+                addUniqueMove(moves, move);
+            }
+            candidates.complete = true;
+            return candidates;
+        }
 
         ThreatSequenceConfig threatConfig;
         threatConfig.maxDepth = 2;
@@ -243,7 +255,7 @@ private:
         }
 
         if (moves.empty()) {
-            for (const Move& move : state.legalMoves()) {
+            for (const Move& move : legalMoves) {
                 addUniqueMove(moves, move);
                 if (moves.size() >= config_.maxCandidateMoves) {
                     break;
@@ -254,7 +266,8 @@ private:
         if (moves.size() > config_.maxCandidateMoves) {
             moves.resize(config_.maxCandidateMoves);
         }
-        return moves;
+        candidates.complete = moves.size() == legalMoves.size();
+        return candidates;
     }
 
     NodeResult heuristicLeaf(const GameState& state, Player attacker, int ply) const {
@@ -276,8 +289,8 @@ private:
         }
 
         const int eval = StaticEvaluator::evaluate(state, attacker);
-        const bool attackerThreat = state.hasThreatAtLeast(attacker, ThreatType::OpenThree);
-        const bool defenderThreat = state.hasThreatAtLeast(otherPlayer(attacker), ThreatType::OpenThree);
+        const bool attackerThreat = state.canCreateThreatAtLeast(attacker, ThreatType::OpenThree);
+        const bool defenderThreat = state.canCreateThreatAtLeast(otherPlayer(attacker), ThreatType::OpenThree);
         if (attackerThreat && !defenderThreat) {
             leaf.proofNumber = 1;
             leaf.disproofNumber = 3;
@@ -305,10 +318,11 @@ private:
         }
 
         const bool attackerTurn = state.sideToMove() == attacker;
-        const std::vector<Move> candidates = generateCandidates(state, state.sideToMove(), attackerTurn);
-        if (candidates.empty()) {
+        const CandidateSet generated = generateCandidates(state, state.sideToMove(), attackerTurn);
+        if (generated.moves.empty()) {
             return heuristicLeaf(state, attacker, ply);
         }
+        const std::vector<Move>& candidates = generated.moves;
 
         NodeResult node;
         node.maxDepthReached = ply;
@@ -358,7 +372,7 @@ private:
                 }
             }
 
-            if (allLosses && searchedAnyChild && searchedAllChildren) {
+            if (allLosses && searchedAnyChild && searchedAllChildren && generated.complete) {
                 node.outcome = ProofOutcome::ProvenLoss;
                 node.proofNumber = kProofInfinity;
                 node.disproofNumber = 0;
@@ -420,7 +434,7 @@ private:
             }
         }
 
-        if (allWins && searchedAnyChild && searchedAllChildren) {
+        if (allWins && searchedAnyChild && searchedAllChildren && generated.complete) {
             node.outcome = ProofOutcome::ProvenWin;
             node.proofNumber = 0;
             node.disproofNumber = kProofInfinity;

@@ -239,9 +239,10 @@ public:
             }
         }
 
+        std::optional<Move> threatPreferredMove;
         if (shouldRunRootThreatSearch(state)) {
             ThreatSequenceConfig threatConfig;
-            threatConfig.maxDepth = std::max(2, config_.maxDepth + 2);
+            threatConfig.maxDepth = std::max(2, config_.vcfMaxDepth);
             threatConfig.maxNodes = std::max<std::uint64_t>(1000, config_.maxNodes / 3);
             threatConfig.timeLimitMs = hardTimeLimitMs() > 0 ? std::max(10, hardTimeLimitMs() / 4) : 0;
             threatConfig.maxThreatMoves = std::max<std::size_t>(6, config_.maxCandidateMoves);
@@ -250,23 +251,15 @@ public:
             ThreatSearchResult threatResult = threatSearcher.searchWinningSequence(state, state.sideToMove());
             result.summary.threatNodes = threatResult.nodes;
             if (threatResult.foundWin && !threatResult.sequence.empty()) {
-                result.bestMove = threatResult.sequence.front().move;
-                result.summary.score = kMateScore;
-                result.summary.depthReached = static_cast<int>(threatResult.sequence.size());
+                threatPreferredMove = threatResult.sequence.front().move;
                 result.summary.threatSequenceLength = static_cast<int>(threatResult.sequence.size());
                 result.summary.usedThreatSequence = true;
-                result.summary.completedLastDepth = true;
                 result.threatSequence = threatResult;
-                result.summary.principalVariation.reserve(threatResult.sequence.size());
-                for (const ThreatStep& step : threatResult.sequence) {
-                    result.summary.principalVariation.push_back(step.move);
-                }
-                return finalizeResult(std::move(result));
             }
         }
 
         GameState rootState = state;
-        auto rootMoves = generateOrderedCandidates(rootState, 0);
+        auto rootMoves = generateOrderedCandidates(rootState, 0, threatPreferredMove);
         result.summary.rootCandidateCount = static_cast<int>(rootMoves.size());
         if (rootMoves.empty()) {
             result.summary.score = StaticEvaluator::evaluate(rootState, rootState.sideToMove());
@@ -274,7 +267,7 @@ public:
         }
 
         result.bestMove = rootMoves.front().move;
-        result.summary.score = rootMoves.front().score;
+        result.summary.score = StaticEvaluator::evaluate(rootState, rootState.sideToMove());
 
         int previousScore = result.summary.score;
         for (int depth = 1; depth <= config_.maxDepth; ++depth) {
@@ -392,14 +385,12 @@ private:
 
     bool shouldRunRootThreatSearch(const GameState& state) const {
         const Player side = state.sideToMove();
-        const Player opponent = otherPlayer(side);
-        return state.hasThreatAtLeast(side, ThreatType::OpenThree)
-            || state.hasThreatAtLeast(opponent, ThreatType::OpenThree);
+        return state.canCreateThreatAtLeast(side, ThreatType::OpenThree);
     }
 
     std::size_t candidateBudget(const GameState& state) const {
         const Player opponent = otherPlayer(state.sideToMove());
-        if (state.hasThreatAtLeast(opponent, ThreatType::SimpleFour)) {
+        if (state.canCreateThreatAtLeast(opponent, ThreatType::Five)) {
             return std::max<std::size_t>(config_.maxCandidateMoves, 32);
         }
         return std::max<std::size_t>(1, config_.maxCandidateMoves);
@@ -455,63 +446,43 @@ private:
 
         const Player side = state.sideToMove();
         const Player opponent = otherPlayer(side);
-        if (state.hasThreatAtLeast(side, ThreatType::OpenThree) || state.hasThreatAtLeast(opponent, ThreatType::OpenThree)) {
+        if (state.canCreateThreatAtLeast(side, ThreatType::OpenThree)
+            || state.canCreateThreatAtLeast(opponent, ThreatType::OpenThree)) {
             return false;
         }
 
         return true;
     }
 
-    // When the opponent already has a forcing threat on the board, prune the
-    // candidate list to moves that either neutralise the threat or create an
-    // equally-fast counter-attack. Mirrors PentaZen's generate<DEFEND_B4>
-    // and generate<DEFEND_F3> stages — large node reduction and also a
-    // correctness win (we never waste tempo on quiet moves when forced).
+    // The optional filter is deliberately limited to concrete one-ply wins.
+    // Potential OpenThree/Four creators are ordering information, not proof
+    // that every other legal move can be discarded.
     std::vector<CandidateMove> applyDefensiveFilter(const GameState& state, std::vector<CandidateMove> candidates) const {
         if (!config_.useDefensiveFiltering || candidates.size() <= 1) {
             return candidates;
         }
 
         const Player opponent = otherPlayer(state.sideToMove());
-        if (!state.hasThreatAtLeast(opponent, ThreatType::OpenThree)) {
+        const std::vector<Move> opponentWinningMoves =
+            state.movesCreatingThreatAtLeast(opponent, ThreatType::Five);
+        if (opponentWinningMoves.empty()) {
             return candidates;
-        }
-
-        // Classify the opponent's best on-board threat. Anything at or above
-        // SimpleFour means the opponent is one ply from forming Five, so only
-        // our own Five counts as a counter — a four of our own doesn't win the
-        // tempo race. At OpenThree level, a counter-four forces the opponent
-        // to abandon their extension and defend instead.
-        const bool opponentFourOnBoard = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour);
-        const ThreatType counterThreshold = opponentFourOnBoard
-            ? ThreatType::Five
-            : ThreatType::SimpleFour;
-
-        // Defender squares are the opponent's own extension points: cells
-        // where *they* playing would jump to OpenFour/Five. Occupying those
-        // cells denies the extension.
-        std::vector<Move> defenderSquares;
-        defenderSquares.reserve(candidates.size());
-        for (const CandidateMove& candidate : candidates) {
-            const ThreatType opponentThreatHere = state.threatInfoAt(candidate.move, opponent).best;
-            if (threatSeverity(opponentThreatHere) >= threatSeverity(ThreatType::OpenFour)) {
-                defenderSquares.push_back(candidate.move);
-            }
         }
 
         std::vector<CandidateMove> filtered;
         filtered.reserve(candidates.size());
         for (const CandidateMove& candidate : candidates) {
-            const bool defends = std::find(defenderSquares.begin(), defenderSquares.end(), candidate.move) != defenderSquares.end();
-            const bool counters = threatSeverity(candidate.threatInfo.best) >= threatSeverity(counterThreshold);
-            if (defends || counters) {
+            const bool winsNow = candidate.threatInfo.best == ThreatType::Five;
+            const bool blocksOnlyWin = opponentWinningMoves.size() == 1U
+                && candidate.move == opponentWinningMoves.front();
+            if (winsNow || blocksOnlyWin) {
                 filtered.push_back(candidate);
             }
         }
 
-        // If nothing survives (defender squares pruned out by earlier filters
-        // and no in-range counter), fall back to the full candidate list so
-        // the search still has moves to consider.
+        // Multiple independent winning squares cannot all be blocked in one
+        // move. Keep the full list when there is no immediate counter-win so
+        // the optional filter never fabricates a legal defense.
         return filtered.empty() ? candidates : filtered;
     }
 
@@ -554,6 +525,12 @@ private:
                 return leftTt;
             }
 
+            // Candidate scores now use the same tactical scale as leaf
+            // evaluation, including the value of occupying an opponent win.
+            if (left.score != right.score) {
+                return left.score > right.score;
+            }
+
             const bool leftKillerOne = firstKiller.has_value() && left.move == *firstKiller;
             const bool rightKillerOne = firstKiller.has_value() && right.move == *firstKiller;
             if (leftKillerOne != rightKillerOne) {
@@ -584,7 +561,7 @@ private:
                 return leftHistory > rightHistory;
             }
 
-            return left.score > right.score;
+            return false;
         });
 
         return candidates;
@@ -604,9 +581,9 @@ private:
         std::optional<Move> bestMove;
         const int originalAlpha = alpha;
 
-        // Forced-four defense extension at the root (see negamax for detail).
+        // Extend only for a concrete opponent move that wins immediately.
         const Player rootOpponent = otherPlayer(state.sideToMove());
-        const int forcedDefenseExtension = state.hasThreatAtLeast(rootOpponent, ThreatType::SimpleFour) ? 1 : 0;
+        const int forcedDefenseExtension = state.canCreateThreatAtLeast(rootOpponent, ThreatType::Five) ? 1 : 0;
         const int childDepth = depth - 1 + forcedDefenseExtension;
 
         for (std::size_t index = 0; index < candidates.size(); ++index) {
@@ -749,7 +726,7 @@ private:
             if (config_.useVcfAtLeaves && !state.isGameOver()) {
                 const Player attacker = state.sideToMove();
                 // Cheap gate: only probe when there's already four-making potential.
-                if (state.hasThreatAtLeast(attacker, ThreatType::BrokenThree)) {
+                if (state.canCreateThreatAtLeast(attacker, ThreatType::BrokenThree)) {
                     VcfProbe probe;
                     probe.nodeBudget = config_.vcfNodeBudget;
                     GameState working = state;
@@ -772,19 +749,19 @@ private:
         const bool isPvNode = (beta - alpha) > 1;
         const bool nearMate = std::abs(alpha) >= kMateThreshold || std::abs(beta) >= kMateThreshold;
         const Player opponent = otherPlayer(state.sideToMove());
-        const bool underForcingThreat = state.hasThreatAtLeast(opponent, ThreatType::OpenThree);
+        const bool underForcingThreat = state.canCreateThreatAtLeast(opponent, ThreatType::OpenThree);
         if (!isPvNode && !nearMate && !underForcingThreat && ply > 0) {
             constexpr int kFutilityMarginPerDepth = 45;
             // Reverse futility: if static eval already beats beta by a fat
             // margin, trust it and return without searching.
-            if (depth < 7 && staticEval < kMateThreshold
+            if (config_.useReverseFutilityPruning && depth < 7 && staticEval < kMateThreshold
                 && staticEval - kFutilityMarginPerDepth * depth >= beta) {
                 return staticEval;
             }
             // Razoring: if static eval is far below alpha at very shallow
             // depth, drop to a depth-0 probe. If that stays below alpha,
             // the position is hopeless and we return the probe score.
-            if (depth < 5 && alpha > -kMateThreshold
+            if (config_.useRazoring && depth < 5 && alpha > -kMateThreshold
                 && staticEval + kFutilityMarginPerDepth * depth < alpha) {
                 const int razored = negamax(state, 0, alpha, beta, ply, allowNullMove);
                 if (!completedDepth_) {
@@ -830,11 +807,7 @@ private:
             return staticEval;
         }
 
-        // Forced-four defense extension: if the opponent is threatening a
-        // SimpleFour/OpenFour at this position, every child is either a
-        // forced defense or an immediate loss — extend search by +1 so the
-        // horizon doesn't fall inside the forced sequence.
-        const int forcedDefenseExtension = state.hasThreatAtLeast(opponent, ThreatType::SimpleFour) ? 1 : 0;
+        const int forcedDefenseExtension = state.canCreateThreatAtLeast(opponent, ThreatType::Five) ? 1 : 0;
 
         const int originalAlpha = alpha;
         int bestScore = -kInfinity;
