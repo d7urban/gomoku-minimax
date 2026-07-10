@@ -25,9 +25,6 @@ public:
     static MoveThreatInfo analyzeMove(const GameState& state, Move move, Player player);
     static int evaluate(const GameState& state, Player perspective);
     static std::vector<CandidateMove> generateCandidateMoves(const GameState& state, Player player, std::size_t maxMoves);
-
-private:
-    static int evaluatePlayerPotential(const GameState& state, Player player);
 };
 
 }  // namespace gomoku

@@ -13,8 +13,8 @@ namespace {
 constexpr int kAnalystMateScore = 10'000'000;
 
 bool isSharpPosition(const GameState& state, Player player) {
-    return state.hasThreatAtLeast(player, ThreatType::OpenThree)
-        || state.hasThreatAtLeast(otherPlayer(player), ThreatType::OpenThree);
+    return state.canCreateThreatAtLeast(player, ThreatType::OpenThree)
+        || state.canCreateThreatAtLeast(otherPlayer(player), ThreatType::OpenThree);
 }
 
 ProofAnalysisConfig makeProofConfig(SearchConfig config) {

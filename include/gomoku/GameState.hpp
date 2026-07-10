@@ -39,7 +39,8 @@ public:
     const std::vector<Action>& actions() const;
     std::optional<Move> lastPlacedMove() const;
     const MoveThreatInfo& threatInfoAt(Move move, Player player) const;
-    bool hasThreatAtLeast(Player player, ThreatType threshold) const;
+    bool canCreateThreatAtLeast(Player player, ThreatType threshold) const;
+    std::vector<Move> movesCreatingThreatAtLeast(Player player, ThreatType threshold) const;
     int totalPotential(Player player) const;
     std::uint64_t positionHash() const;
 

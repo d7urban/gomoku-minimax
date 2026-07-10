@@ -129,7 +129,7 @@ int main() {
 
         ThreatSequenceSearcher searcher;
         const auto threats = searcher.enumerateThreats(game, Player::Black);
-        assert(game.hasThreatAtLeast(Player::Black, ThreatType::OpenThree));
+        assert(game.canCreateThreatAtLeast(Player::Black, ThreatType::OpenThree));
         bool foundOpenThree = false;
         for (const auto& threat : threats) {
             if (threat.move == Move {7, 9} && threat.type == ThreatType::OpenThree) {
@@ -293,6 +293,7 @@ int main() {
         ProofAnalyzer analyzer(proofConfig);
         const ProofAnalysisResult proof = analyzer.analyze(game, Player::Black);
         assert(proof.outcome == ProofOutcome::ProvenWin);
+        assert(!proof.usedThreatShortcut);
         assert(proof.bestMove.has_value());
         const bool proofWinningMove = (*proof.bestMove == Move {7, 6}) || (*proof.bestMove == Move {7, 11});
         assert(proofWinningMove);

@@ -18,8 +18,10 @@ struct SearchConfig {
     int softTimeLimitMs {0};
     std::size_t maxCandidateMoves {18};
     bool useAspirationWindows {true};
-    bool useNullMovePruning {true};
-    bool useDefensiveFiltering {true};
+    bool useNullMovePruning {false};
+    bool useDefensiveFiltering {false};
+    bool useReverseFutilityPruning {false};
+    bool useRazoring {false};
     bool useOpeningBook {false};
     bool useVcfAtLeaves {true};
     int vcfMaxDepth {10};
